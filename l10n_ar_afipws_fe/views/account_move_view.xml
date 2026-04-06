@@ -31,10 +31,6 @@
             <field name="l10n_ar_afip_concept" position="after">
                 <field name="afip_fce_es_anulacion" />
             </field>
-            <!-- Do not show EDI tab in Argentinian Localization since it's not used -->
-            <page id="edi_documents" position="attributes">
-                <attribute name="invisible">1</attribute>
-            </page>
             <!-- Add AFIP Tab -->
             <notebook>
                 <page

@@ -4,7 +4,7 @@
 import logging
 
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -24,6 +24,24 @@ class AccountJournal(models.Model):
             ("wsfex", _("Export -with detail- RG2758 (WSFEXv1)")),
             ("wsbfe", _("Fiscal Bond -with detail- RG2557 (WSBFE)")),
         ]
+
+    @api.constrains("l10n_latam_use_documents")
+    def check_use_document(self):
+        """Override to avoid false positives when the value is written unchanged.
+        The base constraint fires even when writing the same value (e.g. during
+        demo data loading), causing spurious errors when there are posted invoices."""
+        for rec in self:
+            if rec.l10n_latam_use_documents == rec._origin.l10n_latam_use_documents:
+                continue
+            if rec.env["account.move"].search_count(
+                [("journal_id", "=", rec.id), ("posted_before", "=", True)], limit=1
+            ):
+                raise ValidationError(
+                    _(
+                        'You can not modify the field "Use Documents?" '
+                        "if there are validated invoices in this journal!"
+                    )
+                )
 
     def _get_l10n_ar_afip_pos_types_selection(self):
         res = super()._get_l10n_ar_afip_pos_types_selection()

@@ -6,8 +6,6 @@
         <field name="name">(l10n_ar) Invoice: Post draft entries asynchronous</field>
         <field name="interval_number">5</field>
         <field name="interval_type">minutes</field>
-        <field name="numbercall">-1</field>
-        <field name="doall" eval="False" />
         <field name="code">model.cron_asynchronous_post()</field>
         <field name="active" eval="True" />
     </record>
