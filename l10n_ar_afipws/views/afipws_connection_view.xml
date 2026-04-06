@@ -27,14 +27,14 @@
         <field name="name">afipws.auth.tree</field>
         <field name="model">afipws.connection</field>
         <field name="arch" type="xml">
-            <tree create="false" edit="false">
+            <list create="false" edit="false">
                 <field name="afip_ws" string="AFIP WS" />
                 <field name="type" string="Tipo" />
                 <field name="uniqueid" string="Unique ID" />
                 <field name="generationtime" string="Fecha de Generación" />
                 <field name="expirationtime" string="Fecha de Expiración" />
                 <field name="company_id" string="Compañía" />
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -42,7 +42,7 @@
         <field name="name">AFIP Connections</field>
         <field name="type">ir.actions.act_window</field>
         <field name="res_model">afipws.connection</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
     </record>
 
     <menuitem

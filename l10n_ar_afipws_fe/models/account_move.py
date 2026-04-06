@@ -27,22 +27,17 @@ class AccountMove(models.Model):
         string="AFIP authorization mode",
         copy=False,
         readonly=True,
-        states={"draft": [("readonly", False)]},
     )
     afip_auth_code = fields.Char(
         copy=False,
         string="CAE/CAI/CAEA Code",
         readonly=True,
-        oldname="afip_cae",
         size=24,
-        states={"draft": [("readonly", False)]},
     )
     afip_auth_code_due = fields.Date(
         copy=False,
         readonly=True,
-        oldname="afip_cae_due",
         string="CAE/CAI/CAEA due Date",
-        states={"draft": [("readonly", False)]},
     )
     afip_message = fields.Text(string="AFIP Message", copy=False, readonly=True)
     afip_xml_request = fields.Text(string="AFIP XML Request", copy=False, readonly=True)
@@ -53,7 +48,6 @@ class AccountMove(models.Model):
         [("", "n/a"), ("A", "Aceptado"), ("R", "Rechazado"), ("O", "Observado")],
         "Resultado",
         readonly=True,
-        states={"draft": [("readonly", False)]},
         copy=False,
         help="AFIP request result",
     )
@@ -66,7 +60,7 @@ class AccountMove(models.Model):
             lambda move: move.journal_id.afip_ws in ["wsfe", "wsfex", "wsbfe"]
         )
         manual_records.highest_name = ""
-        return super(AccountMove, self - manual_records)._compute_highest_name()
+        super(AccountMove, self - manual_records)._compute_highest_name()
 
     def _get_starting_sequence(self):
         """
@@ -123,7 +117,7 @@ class AccountMove(models.Model):
                     "nroCmp": number_parts["invoice_number"],
                     "importe": float(float_repr(rec.amount_total, 2)),
                     "moneda": rec.currency_id.l10n_ar_afip_code,
-                    "ctz": float(float_repr(rec.l10n_ar_currency_rate, 2)),
+                    "ctz": float(float_repr(rec.invoice_currency_rate, 2)),
                     "tipoCodAut": "E" if rec.afip_auth_mode == "CAE" else "A",
                     "codAut": int(rec.afip_auth_code),
                 }
@@ -159,7 +153,7 @@ class AccountMove(models.Model):
 
     def _post(self, soft=True):
         posted_l10n_ar_invoices = self.filtered(
-            lambda x: x.company_id.country_id.code == "AR"
+            lambda x: x.company_id.account_fiscal_country_id.code == "AR"
             and x.is_invoice()
             and x.move_type in ["out_invoice", "out_refund"]
             and x.journal_id.afip_ws
@@ -228,15 +222,11 @@ class AccountMove(models.Model):
                 soap_fault.faultcode,
                 soap_fault.faultstring,
             )
-        except Exception as ex:
-            error_msg = ex
         except Exception:
             if ws.Excepcion:
                 error_msg = ws.Excepcion
             else:
-                error_msg = traceback.format_exception_only(
-                    sys.exc_type, sys.exc_value
-                )[0]
+                error_msg = traceback.format_exception_only(*sys.exc_info()[:2])[0]
         if error_msg:
             formatted_message = _(
                 "AFIP Auth Error. %s" % error_msg
@@ -309,7 +299,7 @@ class AccountMove(models.Model):
         invoice["imp_op_ex"] = str("%.2f" % amounts["vat_exempt_base_amount"])
         invoice["imp_neto"] = str("%.2f" % amounts["vat_taxable_amount"])
         invoice["moneda_id"] = self.currency_id.l10n_ar_afip_code
-        invoice["moneda_ctz"] = self.l10n_ar_currency_rate or 1.0
+        invoice["moneda_ctz"] = self.invoice_currency_rate or 1.0
 
         # Caso de facturas "C"
         if self.l10n_latam_document_type_id.l10n_ar_letter == "C":

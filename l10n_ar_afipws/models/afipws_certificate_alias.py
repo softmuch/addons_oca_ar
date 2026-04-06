@@ -20,21 +20,15 @@ class AfipwsCertificateAlias(models.Model):
         size=64,
         default="AFIP WS",
         help="Just a name, you can leave it this way",
-        states={"draft": [("readonly", False)]},
-        readonly=True,
         required=True,
     )
     key = fields.Text(
         "Private Key",
-        readonly=True,
-        states={"draft": [("readonly", False)]},
     )
     company_id = fields.Many2one(
         "res.company",
         "Company",
         required=True,
-        states={"draft": [("readonly", False)]},
-        readonly=True,
         default=lambda self: self.env.user.company_id,
         auto_join=True,
         index=True,
@@ -42,25 +36,17 @@ class AfipwsCertificateAlias(models.Model):
     country_id = fields.Many2one(
         "res.country",
         "Country",
-        states={"draft": [("readonly", False)]},
-        readonly=True,
         required=True,
     )
     state_id = fields.Many2one(
         "res.country.state",
         "State",
-        states={"draft": [("readonly", False)]},
-        readonly=True,
     )
     city = fields.Char(
-        states={"draft": [("readonly", False)]},
-        readonly=True,
         required=True,
     )
     department = fields.Char(
         default="IT",
-        states={"draft": [("readonly", False)]},
-        readonly=True,
         required=True,
     )
     cuit = fields.Char(
@@ -71,28 +57,21 @@ class AfipwsCertificateAlias(models.Model):
     company_cuit = fields.Char(
         "Company CUIT",
         size=16,
-        states={"draft": [("readonly", False)]},
-        readonly=True,
     )
     service_provider_cuit = fields.Char(
         "Service Provider CUIT",
         size=16,
-        states={"draft": [("readonly", False)]},
-        readonly=True,
     )
     certificate_ids = fields.One2many(
         "afipws.certificate",
         "alias_id",
         "Certificates",
-        states={"cancel": [("readonly", True)]},
         auto_join=True,
     )
     service_type = fields.Selection(
         [("in_house", "En Casa"), ("outsourced", "Subcontratado")],
         default="in_house",
         required=True,
-        readonly=True,
-        states={"draft": [("readonly", False)]},
     )
     state = fields.Selection(
         [
@@ -115,8 +94,6 @@ class AfipwsCertificateAlias(models.Model):
         [("production", "Producción"), ("homologation", "Homologación")],
         required=True,
         default="production",
-        readonly=True,
-        states={"draft": [("readonly", False)]},
     )
 
     @api.onchange("company_id")
@@ -152,7 +129,8 @@ class AfipwsCertificateAlias(models.Model):
         for rec in self:
             k = crypto.PKey()
             k.generate_key(crypto.TYPE_RSA, key_length)
-            rec.key = crypto.dump_privatekey(crypto.FILETYPE_PEM, k)
+            pem_bytes = crypto.dump_privatekey(crypto.FILETYPE_PEM, k)
+            rec.key = pem_bytes.decode("utf-8") if isinstance(pem_bytes, bytes) else pem_bytes
 
     def action_to_draft(self):
         self.write({"state": "draft"})
@@ -167,23 +145,21 @@ class AfipwsCertificateAlias(models.Model):
         """Generates a certificate request to ask AFIP for the certificate"""
         for record in self:
             req = crypto.X509Req()
-            req.get_subject().C = self.country_id.code.encode("ascii", "ignore")
+            req.get_subject().C = self.country_id.code
             if self.state_id:
-                req.get_subject().ST = self.state_id.name.encode("ascii", "ignore")
-            req.get_subject().L = self.city.encode("ascii", "ignore")
-            req.get_subject().O = self.company_id.name.encode(  # noqa: E741
-                "ascii", "ignore"
-            )
-            req.get_subject().OU = self.department.encode("ascii", "ignore")
-            req.get_subject().CN = self.common_name.encode("ascii", "ignore")
-            req.get_subject().serialNumber = "CUIT %s" % self.cuit.encode(
-                "ascii", "ignore"
-            )
+                req.get_subject().ST = self.state_id.name
+            req.get_subject().L = self.city
+            req.get_subject().O = self.company_id.name  # noqa: E741
+            req.get_subject().OU = self.department
+            req.get_subject().CN = self.common_name
+            req.get_subject().serialNumber = "CUIT %s" % self.cuit
             k = crypto.load_privatekey(crypto.FILETYPE_PEM, self.key)
-            self.key = crypto.dump_privatekey(crypto.FILETYPE_PEM, k)
+            pem_bytes = crypto.dump_privatekey(crypto.FILETYPE_PEM, k)
+            self.key = pem_bytes.decode("utf-8") if isinstance(pem_bytes, bytes) else pem_bytes
             req.set_pubkey(k)
             req.sign(k, "sha256")
-            csr = crypto.dump_certificate_request(crypto.FILETYPE_PEM, req)
+            csr_bytes = crypto.dump_certificate_request(crypto.FILETYPE_PEM, req)
+            csr = csr_bytes.decode("utf-8") if isinstance(csr_bytes, bytes) else csr_bytes
             vals = {
                 "csr": csr,
                 "alias_id": record.id,

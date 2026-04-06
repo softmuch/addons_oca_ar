@@ -3,7 +3,7 @@
 
 {
     "name": "Modulo Base para los Web Services de AFIP",
-    "version": "16.0.1.0.0",
+    "version": "18.0.1.0.0",
     "category": "Accounting/Localizations",
     "sequence": 14,
     "author": "Nimarosa, ADHOC SA, Moldeo Interactive, Exemax, \

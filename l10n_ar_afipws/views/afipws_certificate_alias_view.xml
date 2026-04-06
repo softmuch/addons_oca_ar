@@ -10,7 +10,7 @@
                     <button
                         name="action_confirm"
                         type="object"
-                        states="draft"
+                        invisible="state != 'draft'"
                         string="Confirmar"
                         class="oe_highlight"
                         help="Confirm and generate Key"
@@ -18,20 +18,20 @@
                     <button
                         name="action_create_certificate_request"
                         type="object"
-                        states="confirmed"
+                        invisible="state != 'confirmed'"
                         class="oe_highlight"
                         string="Crear Solicitud de Certificado"
                     />
                     <button
                         name="action_cancel"
                         type="object"
-                        states="draft,confirmed"
+                        invisible="state not in ['draft', 'confirmed']"
                         string="Cancelar"
                     />
                     <button
                         name="action_to_draft"
                         type="object"
-                        states="cancel"
+                        invisible="state != 'cancel'"
                         string="Volver a Borrador"
                     />
                     <field name="state" widget="statusbar" />
@@ -43,29 +43,31 @@
                                 name="company_id"
                                 groups="base.group_multi_company"
                                 string="Compañía"
+                                readonly="state != 'draft'"
                             />
-                            <field name="type" string="Tipo" />
+                            <field name="type" string="Tipo" readonly="state != 'draft'" />
                             <field
                                 name="service_type"
                                 groups="base.group_no_one"
                                 string="Tipo de Servicio"
+                                readonly="state != 'draft'"
                             />
-                            <field name="service_provider_cuit" />
-                            <field name="company_cuit" string="CUIT de la Compañía" />
+                            <field name="service_provider_cuit" readonly="state != 'draft'" />
+                            <field name="company_cuit" string="CUIT de la Compañía" readonly="state != 'draft'" />
                         </group>
                         <group>
-                            <field name="common_name" string="Nombre Común" />
-                            <field name="country_id" string="País" />
-                            <field name="state_id" string="Provincia" />
-                            <field name="city" string="Ciudad" />
+                            <field name="common_name" string="Nombre Común" readonly="state != 'draft'" />
+                            <field name="country_id" string="País" readonly="state != 'draft'" />
+                            <field name="state_id" string="Provincia" readonly="state != 'draft'" />
+                            <field name="city" string="Ciudad" readonly="state != 'draft'" />
                         </group>
                     </group>
                     <notebook>
                         <page string="Ceritificados">
-                            <field name="certificate_ids" />
+                            <field name="certificate_ids" readonly="state == 'cancel'" />
                         </page>
                         <page string="Key" groups="base.group_no_one">
-                            <field name="key" />
+                            <field name="key" readonly="state != 'draft'" />
                         </page>
                     </notebook>
                 </sheet>
@@ -90,12 +92,12 @@
         <field name="name">afipws.certificate_alias.tree</field>
         <field name="model">afipws.certificate_alias</field>
         <field name="arch" type="xml">
-            <tree>
+            <list>
                 <field name="type" string="Tipo" />
                 <field name="common_name" string="Nombre Común" />
                 <field name="company_id" string="Compañía" />
                 <field name="state" string="Estado" />
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -103,7 +105,7 @@
         <field name="name">AFIP Certificado</field>
         <field name="type">ir.actions.act_window</field>
         <field name="res_model">afipws.certificate_alias</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
     </record>
 
     <menuitem

@@ -28,14 +28,10 @@ class AfipwsCertificate(models.Model):
     )
     csr = fields.Text(
         "Request Certificate",
-        readonly=True,
-        states={"draft": [("readonly", False)]},
         help="Certificate Request in PEM format.",
     )
     crt = fields.Text(
         "Certificate",
-        readonly=True,
-        states={"draft": [("readonly", False)]},
         help="Certificate in PEM format.",
     )
     state = fields.Selection(
@@ -66,7 +62,6 @@ class AfipwsCertificate(models.Model):
         "res.company",
         "Company",
         required=True,
-        states={"draft": [("readonly", False)]},
         readonly=True,
         default=lambda self: self.env.user.company_id,
         auto_join=True,
@@ -129,17 +124,18 @@ class AfipwsCertificate(models.Model):
                     crypto.FILETYPE_PEM, self.crt.encode("ascii")
                 )
             except Exception as e:
-                if "Expecting: CERTIFICATE" in e[0]:
+                err_str = str(e)
+                if "Expecting: CERTIFICATE" in err_str:
                     raise UserError(
                         _(
                             "Wrong Certificate file format.\nBe sure you have "
                             "BEGIN CERTIFICATE string in your first line."
                         )
-                    ) from Exception
+                    ) from e
                 else:
                     raise UserError(
-                        _("Unknown error.\nX509 return this message:\n %s") % (e[0])
-                    ) from Exception
+                        _("Unknown error.\nX509 return this message:\n %s") % err_str
+                    ) from e
         else:
             certificate = None
         return certificate

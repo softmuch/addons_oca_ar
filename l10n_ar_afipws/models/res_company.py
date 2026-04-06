@@ -230,7 +230,7 @@ class ResCompany(models.Model):
                 err_msg = wsaa.Excepcion
             else:
                 # avoid encoding problem when reporting exceptions to the user:
-                err_msg = traceback.format_exception_only(sys.exc_type, sys.exc_value)[
+                err_msg = traceback.format_exception_only(*sys.exc_info()[:2])[
                     0
                 ]
             raise UserError(

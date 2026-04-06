@@ -29,7 +29,6 @@
         <field name="arch" type="xml">
             <!-- Add AFIP Fields -->
             <field name="l10n_ar_afip_concept" position="after">
-                <field name="l10n_ar_currency_rate" />
                 <field name="afip_fce_es_anulacion" />
             </field>
             <!-- Do not show EDI tab in Argentinian Localization since it's not used -->
@@ -41,7 +40,7 @@
                 <page
                     string="AFIP"
                     name="afip"
-                    attrs="{'invisible': [('move_type', 'in', ['in_invoice', 'in_refund'])]}"
+                    invisible="move_type in ['in_invoice', 'in_refund']"
                 >
                     <group>
                         <group>
@@ -60,7 +59,7 @@
                                 /> - <field
                                     name="afip_auth_code"
                                     class="oe_inline"
-                                    attrs="{'required': [('afip_auth_mode', '!=', False)]}"
+                                    required="afip_auth_mode != False"
                                     placeholder="Code"
                                     decoration-bf="1"
                                 />
