@@ -301,6 +301,11 @@ class AccountMove(models.Model):
         invoice["moneda_id"] = self.currency_id.l10n_ar_afip_code
         invoice["moneda_ctz"] = self.invoice_currency_rate or 1.0
 
+        # RG 5616: Condicion IVA Receptor (obligatorio desde nov 2024)
+        responsibility = partner.l10n_ar_afip_responsibility_type_id
+        if responsibility and responsibility.code:
+            invoice["condicion_iva_receptor_id"] = int(responsibility.code)
+
         # Caso de facturas "C"
         if self.l10n_latam_document_type_id.l10n_ar_letter == "C":
             invoice["imp_neto"] = str("%.2f" % self.amount_untaxed)
