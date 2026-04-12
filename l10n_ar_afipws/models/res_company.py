@@ -4,6 +4,7 @@
 import hashlib
 import logging
 import os
+import tempfile
 import time
 import traceback
 
@@ -202,8 +203,24 @@ class ResCompany(models.Model):
                 # access ticket (TA) outdated, create new access request
                 # ticket (TRA)
                 tra = wsaa.CreateTRA(service=service, ttl=DEFAULT_TTL)
-                # cryptographically sing the access ticket
-                cms = wsaa.SignTRA(tra, certificate, private_key)
+                # pyafipws expects file paths, not PEM content — write to temp files
+                with (
+                    tempfile.NamedTemporaryFile(
+                        mode="w", suffix=".crt", delete=False
+                    ) as cert_file,
+                    tempfile.NamedTemporaryFile(
+                        mode="w", suffix=".key", delete=False
+                    ) as key_file,
+                ):
+                    cert_file.write(certificate)
+                    key_file.write(private_key)
+                    cert_path = cert_file.name
+                    key_path = key_file.name
+                try:
+                    cms = wsaa.SignTRA(tra, cert_path, key_path)
+                finally:
+                    os.unlink(cert_path)
+                    os.unlink(key_path)
                 # connect to the webservice:
                 wsaa.Conectar(cache, wsdl, proxy)
                 # call the remote method
