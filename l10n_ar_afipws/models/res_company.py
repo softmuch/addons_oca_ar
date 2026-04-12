@@ -4,7 +4,6 @@
 import hashlib
 import logging
 import os
-import sys
 import time
 import traceback
 
@@ -223,19 +222,17 @@ class ResCompany(models.Model):
             expirationTime = wsaa.ObtenerTagXml("expirationTime")
             generationTime = wsaa.ObtenerTagXml("generationTime")
             uniqueId = wsaa.ObtenerTagXml("uniqueId")
-        except Exception:
+        except Exception as e:
             token = sign = None
+            _logger.exception("AFIP WSAA connection error")
             if wsaa.Excepcion:
                 # get the exception already parsed by the helper
                 err_msg = wsaa.Excepcion
             else:
-                # avoid encoding problem when reporting exceptions to the user:
-                err_msg = traceback.format_exception_only(*sys.exc_info()[:2])[
-                    0
-                ]
+                err_msg = traceback.format_exc()
             raise UserError(
                 _("Could not connect. This is the what we received: %s") % (err_msg)
-            ) from Exception
+            ) from e
         return {
             "uniqueid": uniqueId,
             "generationtime": generationTime,
