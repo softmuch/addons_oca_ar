@@ -3,7 +3,9 @@
 
 
 import logging
+import os
 
+import odoo.tools as tools
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
@@ -138,7 +140,9 @@ class AfipwsConnection(models.Model):
         wsdl = self.afip_ws_url
 
         # connect to the webservice and call to the test method
-        ws.Conectar("", wsdl or "", "", cacert=True)
+        cache = os.path.join(tools.config["data_dir"], "afipws_cache")
+        os.makedirs(cache, exist_ok=True)
+        ws.Conectar(cache, wsdl or "", "", cacert=True)
         cuit = self.company_id.vat
         ws.Cuit = cuit
         ws.Token = self.token
