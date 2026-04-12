@@ -189,10 +189,10 @@ class ResCompany(models.Model):
                 (service + certificate + private_key).encode("utf-8")
             ).hexdigest()
         )
-        if cache:
-            fn = os.path.join(cache, fn)
-        else:
-            fn = os.path.join(wsaa.InstallDir, "cache", fn)
+        if not cache:
+            cache = os.path.join(tools.config["data_dir"], "afipws_cache")
+            os.makedirs(cache, exist_ok=True)
+        fn = os.path.join(cache, fn)
 
         try:
             # read the access ticket (if already authenticated)
