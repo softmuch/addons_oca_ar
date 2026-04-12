@@ -225,11 +225,7 @@ class ResCompany(models.Model):
         except Exception as e:
             token = sign = None
             _logger.exception("AFIP WSAA connection error")
-            if wsaa.Excepcion:
-                # get the exception already parsed by the helper
-                err_msg = wsaa.Excepcion
-            else:
-                err_msg = traceback.format_exc()
+            err_msg = traceback.format_exc()
             raise UserError(
                 _("Could not connect. This is the what we received: %s") % (err_msg)
             ) from e
