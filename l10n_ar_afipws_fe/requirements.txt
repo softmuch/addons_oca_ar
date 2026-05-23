@@ -1,4 +1,0 @@
-pyOpenSSL
-pysimplesoap
-future
-pyafipws @ https://github.com/reingart/pyafipws/archive/main.zip
