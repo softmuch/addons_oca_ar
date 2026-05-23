@@ -104,7 +104,7 @@ class AccountMove(models.Model):
             invoice["cuit_pais_cliente"] = None
         elif country_id.code != "AR" and invoice["nro_doc"]:
             invoice["id_impositivo"] = None
-            if self.commercial_partner.is_company:
+            if self.commercial_partner_id.is_company:
                 invoice["cuit_pais_cliente"] = country_id.cuit_juridica
             else:
                 invoice["cuit_pais_cliente"] = country_id.cuit_fisica

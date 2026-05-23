@@ -1,6 +1,6 @@
 {
     "name": "Listado de Bancos Argentinos",
-    "version": "18.0.1.0.0",
+    "version": "19.0.1.0.0",
     "category": "Localization/Argentina",
     "sequence": 14,
     "website": "https://github.com/OCA/l10n-argentina",

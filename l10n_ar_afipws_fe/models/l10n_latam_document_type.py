@@ -18,7 +18,7 @@ class L10nLatamDocumentType(models.Model):
 
     def get_pyafipws_consult_invoice(self, document_number):
         self.ensure_one()
-        document_type = self.document_type_id.code
+        document_type = self.code
         company = self.journal_id.company_id
         afip_ws = self.journal_id.afip_ws
         if not afip_ws:
@@ -28,7 +28,7 @@ class L10nLatamDocumentType(models.Model):
         ws = company.get_connection(afip_ws).connect()
         if afip_ws in ("wsfe", "wsmtxca"):
             ws.CompConsultar(
-                document_type, self.journal_id.point_of_sale_number, document_number
+                document_type, self.journal_id.l10n_ar_afip_pos_number, document_number
             )
             attributes = [
                 "FechaCbte",
@@ -51,7 +51,7 @@ class L10nLatamDocumentType(models.Model):
             ]
         elif afip_ws == "wsfex":
             ws.GetCMP(
-                document_type, self.journal_id.point_of_sale_number, document_number
+                document_type, self.journal_id.l10n_ar_afip_pos_number, document_number
             )
             attributes = [
                 "PuntoVenta",
@@ -66,7 +66,7 @@ class L10nLatamDocumentType(models.Model):
             ]
         elif afip_ws == "wsbfe":
             ws.GetCMP(
-                document_type, self.journal_id.point_of_sale_number, document_number
+                document_type, self.journal_id.l10n_ar_afip_pos_number, document_number
             )
             attributes = [
                 "PuntoVenta",

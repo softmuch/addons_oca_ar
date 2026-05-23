@@ -63,7 +63,7 @@ class AfipwsCertificate(models.Model):
         "Company",
         required=True,
         readonly=True,
-        default=lambda self: self.env.user.company_id,
+        default=lambda self: self.env.company,
         auto_join=True,
         index=True,
     )
