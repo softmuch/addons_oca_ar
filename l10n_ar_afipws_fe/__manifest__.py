@@ -20,6 +20,8 @@
             "OpenSSL",
             "pysimplesoap",
             "future",
+            "pyafipws",
+            # To install next dependency do: python3.10 -m pip install git+https://github.com/reingart/pyafipws.git
             # "pyafipws@https://github.com/reingart/pyafipws/archive/main.zip",
         ]
     },
