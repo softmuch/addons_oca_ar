@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!--
+        Botón "Enviar ARCA" en header del formulario.
+        Visible cuando: confirmada + journal con afip_ws + sin CAE/CAI/CAEA.
+    -->
+    <record id="view_move_form_afipws_manual" model="ir.ui.view">
+        <field name="name">account.move.afipws.manual.form</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="l10n_ar_afipws_fe.view_move_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[last()]" position="after">
+                <button
+                    name="action_authorize_afip_manual"
+                    string="Enviar ARCA"
+                    type="object"
+                    class="btn-primary"
+                    invisible="not needs_afip_auth"
+                    data-hotkey="a"
+                />
+            </xpath>
+            <!-- Campo necesario para evaluar invisible del botón -->
+            <xpath expr="//field[@name='afip_result']" position="before">
+                <field name="needs_afip_auth" invisible="1" />
+            </xpath>
+        </field>
+    </record>
+
+    <!--
+        Server action para lista: seleccionar múltiples facturas → Acción → "Enviar ARCA"
+    -->
+    <record id="action_authorize_afip_manual_server" model="ir.actions.server">
+        <field name="name">Enviar ARCA</field>
+        <field name="model_id" ref="account.model_account_move" />
+        <field name="binding_model_id" ref="account.model_account_move" />
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_authorize_afip_manual()</field>
+    </record>
+</odoo>
