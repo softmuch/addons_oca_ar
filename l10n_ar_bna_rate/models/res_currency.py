@@ -11,7 +11,7 @@ _logger = logging.getLogger(__name__)
 BNA_URL = "https://www.bna.com.ar/"
 # "divisas" = cotización transferencias (uso empresarial)
 # "billetes" = cotización efectivo/billetes físicos
-BNA_TABLE_ID = "divisas"
+BNA_TABLE_ID = "billetes"
 
 
 class ResCurrency(models.Model):
@@ -105,7 +105,7 @@ class ResCurrency(models.Model):
                     compra = self._bna_parse_number(cols[1])
                     venta = self._bna_parse_number(cols[2])
                     _logger.info(
-                        "BNA scrape OK — USD divisas: compra=%.4f venta=%.4f",
+                        "BNA scrape OK — USD billetes: compra=%.4f venta=%.4f",
                         compra,
                         venta,
                     )
