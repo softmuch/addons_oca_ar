@@ -40,11 +40,18 @@ class ResCurrency(models.Model):
 
         return float(value)
 
-    def _bna_fetch_usd_rate(self):
-        """Scrape USD venta rate from BNA divisas table.
+    # Monedas a scrapear: código Odoo → keywords a buscar en la columna del BNA
+    _BNA_CURRENCIES = {
+        "USD": ("dólar", "dolar", "u$s", "usd"),
+        "EUR": ("euro",),
+        "BRL": ("real",),
+    }
+
+    def _bna_fetch_rates(self):
+        """Scrape venta rates for USD, EUR and BRL from BNA billetes table.
 
         Returns:
-            dict with keys 'compra' and 'venta' (floats, ARS per 1 USD)
+            dict  { 'USD': {'compra': float, 'venta': float}, 'EUR': {...}, 'BRL': {...} }
 
         Raises:
             UserError on connection error or parsing failure.
@@ -74,7 +81,6 @@ class ResCurrency(models.Model):
 
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # BNA renders two tables: id="divisas" y id="billetes"
         container = soup.find(id=BNA_TABLE_ID)
         if not container:
             raise UserError(
@@ -85,111 +91,115 @@ class ResCurrency(models.Model):
                 % (BNA_TABLE_ID, BNA_URL)
             )
 
-        tbody = container.find("table")
-        if not tbody:
+        table = container.find("table")
+        if not table:
             raise UserError(
                 _("Tabla '%s' encontrada pero no contiene <table> HTML.") % BNA_TABLE_ID
             )
 
-        rows = tbody.find_all("tr")
+        rows = table.find_all("tr")
+        result = {}
 
         for row in rows:
             cols = [td.get_text(strip=True) for td in row.find_all("td")]
             if len(cols) < 3:
                 continue
 
-            currency_label = cols[0].lower()
-            # BNA labels USD como "Dólar U.S.A.", "U$S", "Dolar", etc.
-            if any(kw in currency_label for kw in ("dólar", "dolar", "u$s", "usd")):
-                try:
-                    compra = self._bna_parse_number(cols[1])
-                    venta = self._bna_parse_number(cols[2])
-                    _logger.info(
-                        "BNA scrape OK — USD billetes: compra=%.4f venta=%.4f",
-                        compra,
-                        venta,
-                    )
-                    return {"compra": compra, "venta": venta}
-                except (ValueError, IndexError) as e:
-                    raise UserError(
-                        _("Error al parsear cotización USD del BNA: %s\nColumnas: %s")
-                        % (str(e), cols)
-                    )
+            label = cols[0].lower()
+            for odoo_code, keywords in self._BNA_CURRENCIES.items():
+                if odoo_code in result:
+                    continue
+                if any(kw in label for kw in keywords):
+                    try:
+                        compra = self._bna_parse_number(cols[1])
+                        venta = self._bna_parse_number(cols[2])
+                        result[odoo_code] = {"compra": compra, "venta": venta}
+                        _logger.info(
+                            "BNA scrape OK — %s billetes: compra=%.4f venta=%.4f",
+                            odoo_code, compra, venta,
+                        )
+                    except (ValueError, IndexError) as e:
+                        raise UserError(
+                            _("Error al parsear cotización %s del BNA: %s\nColumnas: %s")
+                            % (odoo_code, str(e), cols)
+                        )
 
-        raise UserError(
-            _(
-                "No se encontró la fila de USD en la tabla '%s' del BNA. "
-                "Columnas encontradas: %s"
+        missing = [c for c in self._BNA_CURRENCIES if c not in result]
+        if missing:
+            _logger.warning(
+                "l10n_ar_bna_rate: no se encontraron filas para %s en tabla '%s'.",
+                missing, BNA_TABLE_ID,
             )
-            % (BNA_TABLE_ID, [r.get_text(strip=True) for r in rows[:5]])
-        )
+
+        if not result:
+            raise UserError(
+                _(
+                    "No se encontró ninguna cotización en la tabla '%s' del BNA. "
+                    "Columnas encontradas: %s"
+                )
+                % (BNA_TABLE_ID, [r.get_text(strip=True) for r in rows[:5]])
+            )
+
+        return result
 
     def _bna_update_rates(self):
-        """Fetch BNA USD/ARS rate and update res.currency.rate for all ARS companies.
+        """Fetch BNA rates and update res.currency.rate for USD, EUR and BRL.
 
         Only updates companies whose base currency is ARS.
-        Creates one rate record per company per day (updates if already exists).
+        Creates one rate record per currency per company per day (updates if exists).
         """
-        usd_data = self._bna_fetch_usd_rate()
-        bna_venta = usd_data["venta"]
+        rates_data = self._bna_fetch_rates()
         today = date.today()
-
-        usd_currency = self.sudo().search([("name", "=", "USD")], limit=1)
-        if not usd_currency:
-            _logger.warning("l10n_ar_bna_rate: moneda USD no encontrada en Odoo.")
-            return False
-
-        # rate = unidades de USD por 1 ARS = 1 / (ARS por USD)
-        # Odoo almacena el rate como "esta moneda por 1 unidad de la moneda base"
-        # Si base = ARS → rate USD = 1 / venta_bna
-        rate_value = 1.0 / bna_venta
 
         CurrencyRate = self.env["res.currency.rate"].sudo()
         companies = self.env["res.company"].sudo().search([])
-        updated = 0
+        ars_companies = [c for c in companies if c.currency_id.name == "ARS"]
 
-        for company in companies:
-            if company.currency_id.name != "ARS":
+        if not ars_companies:
+            _logger.warning("l10n_ar_bna_rate: ninguna empresa con moneda ARS encontrada.")
+            return False
+
+        for odoo_code, data in rates_data.items():
+            venta = data["venta"]
+            # Odoo rate = unidades de esta moneda por 1 unidad de la moneda base (ARS)
+            # → rate = 1 / venta_bna
+            rate_value = 1.0 / venta
+
+            currency = self.sudo().search([("name", "=", odoo_code)], limit=1)
+            if not currency:
+                _logger.warning("l10n_ar_bna_rate: moneda %s no encontrada en Odoo.", odoo_code)
                 continue
 
-            existing = CurrencyRate.search(
-                [
-                    ("currency_id", "=", usd_currency.id),
-                    ("name", "=", today),
-                    ("company_id", "=", company.id),
-                ],
-                limit=1,
-            )
+            for company in ars_companies:
+                existing = CurrencyRate.search(
+                    [
+                        ("currency_id", "=", currency.id),
+                        ("name", "=", today),
+                        ("company_id", "=", company.id),
+                    ],
+                    limit=1,
+                )
 
-            if existing:
-                existing.rate = rate_value
-                _logger.info(
-                    "BNA rate updated — empresa: %s | venta: %.4f → rate: %.8f",
-                    company.name,
-                    bna_venta,
-                    rate_value,
-                )
-            else:
-                CurrencyRate.create(
-                    {
-                        "currency_id": usd_currency.id,
-                        "name": today,
-                        "rate": rate_value,
-                        "company_id": company.id,
-                    }
-                )
-                _logger.info(
-                    "BNA rate created — empresa: %s | venta: %.4f → rate: %.8f",
-                    company.name,
-                    bna_venta,
-                    rate_value,
-                )
-            updated += 1
+                if existing:
+                    existing.rate = rate_value
+                    _logger.info(
+                        "BNA rate updated — %s | empresa: %s | venta: %.4f → rate: %.8f",
+                        odoo_code, company.name, venta, rate_value,
+                    )
+                else:
+                    CurrencyRate.create(
+                        {
+                            "currency_id": currency.id,
+                            "name": today,
+                            "rate": rate_value,
+                            "company_id": company.id,
+                        }
+                    )
+                    _logger.info(
+                        "BNA rate created — %s | empresa: %s | venta: %.4f → rate: %.8f",
+                        odoo_code, company.name, venta, rate_value,
+                    )
 
-        if not updated:
-            _logger.warning(
-                "l10n_ar_bna_rate: ninguna empresa con moneda ARS encontrada."
-            )
         return True
 
     def action_bna_update_rates(self):
@@ -201,7 +211,7 @@ class ResCurrency(models.Model):
             "params": {
                 "title": _("BNA - Cotización actualizada"),
                 "message": _(
-                    "Cotización USD/ARS del Banco Nación Argentina actualizada correctamente."
+                    "Cotizaciones USD, EUR y BRL del Banco Nación Argentina actualizadas correctamente."
                 ),
                 "type": "success",
                 "sticky": False,
