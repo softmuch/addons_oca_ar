@@ -59,7 +59,7 @@ class L10nLatamCheckExt(models.Model):
                 continue
             target_date = today + timedelta(days=alert_days)
             checks = self.sudo().search([
-                ('issue_state', '=', 'handed'),
+                # ('issue_state', '=', 'handed'),
                 ('payment_date', '=', target_date),
                 ('payment_method_code', 'in', payment_method_codes),
                 ('company_id', '=', company.id),
