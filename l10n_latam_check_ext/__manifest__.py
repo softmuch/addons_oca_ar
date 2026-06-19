@@ -1,6 +1,6 @@
 {
     "name": "Extensión Cheques LATAM",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.0.1",
     "category": "Localization/Argentina",
     "website": "https://github.com/OCA/l10n-argentina",
     "author": "Odossey",
