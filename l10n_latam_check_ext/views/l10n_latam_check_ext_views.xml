@@ -1,0 +1,50 @@
+<odoo>
+
+    <!-- Form view: add check_type + issue_date in first group -->
+    <record id="l10n_latam_check_ext_view_form" model="ir.ui.view">
+        <field name="name">l10n_latam_check_ext.view.form</field>
+        <field name="model">l10n_latam.check</field>
+        <field name="inherit_id" ref="l10n_latam_check.l10n_latam_check_view_form"/>
+        <field name="arch" type="xml">
+            <field name="name" position="before">
+                <field name="check_type"/>
+                <field name="issue_date"/>
+            </field>
+        </field>
+    </record>
+
+    <!-- Own checks list view: add check_type + issue_date columns -->
+    <record id="l10n_latam_check_ext_view_own_check_tree" model="ir.ui.view">
+        <field name="name">l10n_latam_check_ext.view.own_check.list</field>
+        <field name="model">l10n_latam.check</field>
+        <field name="inherit_id" ref="l10n_latam_check.view_account_own_check_tree"/>
+        <field name="arch" type="xml">
+            <field name="payment_date" position="before">
+                <field name="check_type" optional="show"/>
+                <field name="issue_date" optional="show"/>
+            </field>
+        </field>
+    </record>
+
+    <!-- Payment form — new_checks inline list: add check_type + issue_date -->
+    <record id="l10n_latam_check_ext_view_payment_form" model="ir.ui.view">
+        <field name="name">l10n_latam_check_ext.account.payment.form</field>
+        <field name="model">account.payment</field>
+        <field name="inherit_id" ref="l10n_latam_check.view_account_payment_form_inherited"/>
+        <field name="arch" type="xml">
+            <list name="new_checks">
+                <field name="name" position="before">
+                    <field name="check_type"/>
+                    <field name="issue_date"/>
+                </field>
+            </list>
+            <list name="existing_checks">
+                <field name="name" position="before">
+                    <field name="check_type" optional="hide"/>
+                    <field name="issue_date" optional="hide"/>
+                </field>
+            </list>
+        </field>
+    </record>
+
+</odoo>
