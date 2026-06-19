@@ -47,4 +47,25 @@
         </field>
     </record>
 
+
+    <!-- Payment Register wizard (botón "Pagar" de facturas): new_checks + existing_checks -->
+    <record id="l10n_latam_check_ext_view_payment_register" model="ir.ui.view">
+        <field name="name">l10n_latam_check_ext.account.payment.register.form</field>
+        <field name="model">account.payment.register</field>
+        <field name="inherit_id" ref="l10n_latam_check.view_account_payment_register_form"/>
+        <field name="arch" type="xml">
+            <!-- new_checks list has no name attribute in the wizard, use xpath -->
+            <xpath expr="//field[@name='l10n_latam_new_check_ids']//field[@name='name']" position="before">
+                <field name="check_type"/>
+                <field name="issue_date"/>
+            </xpath>
+            <list name="existing_checks">
+                <field name="name" position="before">
+                    <field name="check_type" optional="hide"/>
+                    <field name="issue_date" optional="hide"/>
+                </field>
+            </list>
+        </field>
+    </record>
+
 </odoo>
