@@ -1,5 +1,19 @@
 <odoo>
 
+    <!-- Search view: filtro "Por vencer" (usa alert_days de la compañía) -->
+    <record id="l10n_latam_check_ext_view_search" model="ir.ui.view">
+        <field name="name">l10n_latam_check_ext.view.search</field>
+        <field name="model">l10n_latam.check</field>
+        <field name="inherit_id" ref="l10n_latam_check.view_account_payment_search"/>
+        <field name="arch" type="xml">
+            <filter name="checks_debited" position="after">
+                <separator/>
+                <filter name="expiring_soon" string="Por vencer"
+                        domain="[('is_expiring_soon', '=', True)]"/>
+            </filter>
+        </field>
+    </record>
+
     <!-- Form view: add check_type + issue_date in first group -->
     <record id="l10n_latam_check_ext_view_form" model="ir.ui.view">
         <field name="name">l10n_latam_check_ext.view.form</field>

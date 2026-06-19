@@ -1,5 +1,9 @@
+import logging
 from datetime import timedelta
-from odoo import models, fields, _
+from odoo import models, fields, api, _
+from odoo.fields import Domain
+
+_logger = logging.getLogger(__name__)
 
 
 class L10nLatamCheckExt(models.Model):
@@ -33,6 +37,58 @@ class L10nLatamCheckExt(models.Model):
             "el plazo de pago diferido (entre 1 y 360 días)."
         ),
     )
+
+    # ── Expiring soon ────────────────────────────────────────────────────────
+
+    is_expiring_soon = fields.Boolean(
+        string='Por vencer',
+        compute='_compute_is_expiring_soon',
+        search='_search_is_expiring_soon',
+    )
+
+    @api.depends(
+        'payment_date', 'payment_method_code', 'company_id',
+        'company_id.l10n_latam_own_check_alert_days',
+        'company_id.l10n_latam_third_check_alert_days',
+    )
+    def _compute_is_expiring_soon(self):
+        today = fields.Date.today()
+        for rec in self:
+            if rec.payment_method_code == 'own_checks':
+                days = rec.company_id.l10n_latam_own_check_alert_days
+            else:
+                days = rec.company_id.l10n_latam_third_check_alert_days
+            rec.is_expiring_soon = bool(
+                days and rec.payment_date
+                and today <= rec.payment_date <= today + timedelta(days=days)
+            )
+
+    def _search_is_expiring_soon(self, operator, value):
+        today = fields.Date.today()
+        sub_domains = []
+        for company in self.env['res.company'].search([]):
+            for codes, days in [
+                (['own_checks'], company.l10n_latam_own_check_alert_days),
+                (['new_third_party_checks'], company.l10n_latam_third_check_alert_days),
+            ]:
+                if not days:
+                    continue
+                sub_domains.append(Domain([
+                    ('company_id', '=', company.id),
+                    ('payment_method_code', 'in', codes),
+                    ('payment_date', '>=', today),
+                    ('payment_date', '<=', today + timedelta(days=days)),
+                ]))
+        combined = Domain.OR(sub_domains) if sub_domains else Domain([('id', '=', False)])
+        if operator == 'in':
+            want_true = True in value
+        elif operator == 'not in':
+            want_true = True not in value
+        elif operator == '=':
+            want_true = bool(value)
+        else:  # !=
+            want_true = not bool(value)
+        return combined if want_true else ~combined
 
     # ── Cron helpers ─────────────────────────────────────────────────────────
 
