@@ -13,15 +13,15 @@
         </xpath>
 
         <div name="footer_left_column" position="inside">
-            <div class="row" t-if="o.afip_auth_code">
+            <div class="row" t-if="o.afip_auth_code" style="font-size: 10px;">
                 <div class="col-3">
-                    <img t-if="o.afip_qr_code" t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('QR', o.afip_qr_code, 130, 130)" alt="QR Code" style="height:110px;"/>
+                    <img t-if="o.afip_qr_code" t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('QR', o.afip_qr_code, 100, 100)" alt="QR Code" style="height:85px;"/>
                 </div>
                 <div class="col-9">
-                    <h3 class="mb-0"><strong>ARCA</strong></h3>
-                    <span style="font-size: 8px;">AGENCIA DE RECAUDACIÓN<br/>Y CONTROL ADUANERO</span>
-                    <p class="mt-2 mb-0"><strong>Comprobante Autorizado</strong></p>
-                    <p><i>Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación</i></p>
+                    <h4 class="mb-0"><strong>ARCA</strong></h4>
+                    <span style="font-size: 7px;">AGENCIA DE RECAUDACIÓN<br/>Y CONTROL ADUANERO</span>
+                    <p class="mt-1 mb-0"><strong>Comprobante Autorizado</strong></p>
+                    <p class="mb-0"><i>Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación</i></p>
                 </div>
             </div>
         </div>

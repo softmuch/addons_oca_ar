@@ -8,8 +8,10 @@
     "depends": [
         "l10n_ar",
         "l10n_ar_afipws_fe",
+        "account",
     ],
     "data": [
+        "data/paperformat.xml",
         "views/report_invoice.xml",
     ],
     "installable": True,
