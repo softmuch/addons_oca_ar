@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="report_invoice_document_afip_footer" inherit_id="l10n_ar.report_invoice_document">
+
+        <!-- boxed company slogan, only once the invoice was authorized by AFIP -->
+        <xpath expr="//div[@name='footer_left_column']/.." position="before">
+            <div class="row" t-if="o.afip_auth_code">
+                <div class="col-12" style="border: 1px solid black; padding: 4px; text-align: center;">
+                    <i t-out="o.company_id.report_footer"/>
+                </div>
+            </div>
+        </xpath>
+
+        <div name="footer_left_column" position="inside">
+            <div class="row" t-if="o.afip_auth_code">
+                <div class="col-3">
+                    <img t-if="o.afip_qr_code" t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('QR', o.afip_qr_code, 130, 130)" alt="QR Code" style="height:110px;"/>
+                </div>
+                <div class="col-9">
+                    <h3 class="mb-0"><strong>ARCA</strong></h3>
+                    <span style="font-size: 8px;">AGENCIA DE RECAUDACIÓN<br/>Y CONTROL ADUANERO</span>
+                    <p class="mt-2 mb-0"><strong>Comprobante Autorizado</strong></p>
+                    <p><i>Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación</i></p>
+                </div>
+            </div>
+        </div>
+
+        <div name="pager" position="replace">
+            <div name="pager" t-if="report_type == 'pdf'">
+                <strong>Pág. <span class="page"/>/<span class="topage"/></strong>
+            </div>
+        </div>
+
+        <div name="footer_right_column" position="inside">
+            <t t-if="o.afip_auth_code">
+                <div><strong>CAE N°: </strong><span t-field="o.afip_auth_code"/></div>
+                <div><strong>Fecha de Vto. de CAE: </strong><span t-field="o.afip_auth_code_due"/></div>
+            </t>
+        </div>
+
+    </template>
+
+</odoo>
