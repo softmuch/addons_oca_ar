@@ -322,7 +322,6 @@ class AccountMove(models.Model):
             or int(invoice["tipo_cbte"]) in [201, 206, 211]
         ):
             invoice["fecha_venc_pago"] = self.invoice_date_due or self.invoice_date
-            invoice["fecha_serv_desde"] = invoice["fecha_serv_hasta"] = None
 
         # asignacion del numero de comprobante desde AFIP
         next_pyafipws_invoice_number = (
