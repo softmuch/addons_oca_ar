@@ -15,7 +15,7 @@
         <div name="footer_left_column" position="inside">
             <div class="row" t-if="o.afip_auth_code" style="font-size: 10px;">
                 <div class="col-3">
-                    <img t-if="o.afip_qr_code" t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('QR', o.afip_qr_code, 100, 100)" alt="QR Code" style="height:85px;"/>
+                    <img t-if="o.afip_qr_code" t-att-src="'/report/barcode/?barcode_type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('QR', o.afip_qr_code, 300, 300)" alt="QR Code" style="height:110px;"/>
                 </div>
                 <div class="col-9">
                     <h4 class="mb-0"><strong>ARCA</strong></h4>
