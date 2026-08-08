@@ -37,10 +37,22 @@ class AccountMove(models.Model):
             )
 
     def _post(self, soft=True):
-        """Override: skip AFIP auto-send on post. User must click 'Enviar ARCA'."""
-        return super(
-            AccountMove, self.with_context(**{_MANUAL_CONTEXT_KEY: True})
-        )._post(soft=soft)
+        """Override: skip AFIP auto-send on post, except for invoices coming
+        from POS (order._generate_pos_order_invoice already sets
+        pos_order_ids on the move before calling _post). User must click
+        'Enviar ARCA' for manually-created invoices."""
+        from_pos = self.filtered("pos_order_ids")
+        manual = self - from_pos
+        posted = self.env["account.move"]
+        # From backend
+        if manual:
+            posted |= super(
+                AccountMove, manual.with_context(**{_MANUAL_CONTEXT_KEY: True})
+            )._post(soft=soft)
+        # From POS
+        if from_pos:
+            posted |= super(AccountMove, from_pos)._post(soft=soft)
+        return posted
 
     def authorize_afip(self):
         """Override: no-op when called from _post (context flag set).
