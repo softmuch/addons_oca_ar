@@ -16,3 +16,7 @@ class PosPayment(models.Model):
     )
     l10n_latam_check_issue_date = fields.Date(string="Fecha de Emisión")
     l10n_latam_check_payment_date = fields.Date(string="Fecha de Cobro")
+    l10n_latam_check_id = fields.Many2one(
+        "l10n_latam.check", string="Cheque", readonly=True, copy=False,
+        help="Cheque contable generado al cerrar la sesión de POS.",
+    )
