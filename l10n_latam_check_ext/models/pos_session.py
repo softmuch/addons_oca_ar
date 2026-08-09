@@ -29,6 +29,28 @@ class PosSession(models.Model):
         for payment, check in zip(payments, account_payment.l10n_latam_new_check_ids):
             payment.l10n_latam_check_id = check.id
 
+    # `state` is a stored compute (readonly=False): writing it directly is the
+    # same pattern account.payment's own action_post() uses for asset_cash
+    # outstanding accounts. A check received in the Invoicing app's payment
+    # register wizard shows 'paid' immediately (no 'in_process' step) because
+    # it gets reconciled straight against the invoice; a POS check never has
+    # an invoice to reconcile against (it settles the session's own pos
+    # receivable account instead), so `_compute_state` would otherwise leave
+    # it at 'in_process' forever. Force it to match the Invoicing app.
+    #
+    # This must happen in `_reconcile_account_move_lines`, not right after
+    # `action_post()`: that method (called later, outside `_create_account_move`)
+    # reconciles the receivable-side line, which changes `move_id.line_ids.
+    # amount_residual` - a dependency of `_compute_state` - re-triggering the
+    # compute and undoing an earlier forced 'paid' every time.
+    def _reconcile_account_move_lines(self, data):
+        data = super()._reconcile_account_move_lines(data)
+        self.env['account.payment'].search([
+            ('pos_session_id', '=', self.id),
+            ('pos_payment_method_id.payment_method_type', '=', 'check'),
+        ]).write({'state': 'paid'})
+        return data
+
     # The check-in-hand journal is normally type=cash (per l10n_latam_check's
     # own `_get_payment_method_information`, code 'new_third_party_checks' is
     # meant for cash-type journals). POS routes cash-type payments through
