@@ -1,0 +1,16 @@
+<odoo>
+
+    <record id="view_pos_pos_form_inherit_check" model="ir.ui.view">
+        <field name="name">pos.order.form.inherit.check</field>
+        <field name="model">pos.order</field>
+        <field name="inherit_id" ref="point_of_sale.view_pos_pos_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='payment_ids']/list/field[@name='amount']" position="after">
+                <field name="l10n_latam_check_number" optional="hide"/>
+                <field name="l10n_latam_check_bank_id" optional="hide"/>
+                <field name="l10n_latam_check_payment_date" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="l10n_latam_check_ext.CheckPaymentPopup">
+        <Dialog title="props.title" size="'md'">
+            <div class="d-flex flex-column gap-2">
+                <div class="fw-bold fs-5 mb-1">
+                    <t t-esc="env.utils.formatCurrency(amount)"/>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Número de Cheque</label>
+                    <input class="form-control" type="text" t-model="state.number" autofocus="autofocus"/>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Banco Emisor</label>
+                    <select class="form-select" t-model.number="state.bank_id">
+                        <option value="">-</option>
+                        <t t-foreach="props.banks" t-as="bank" t-key="bank.id">
+                            <option t-att-value="bank.id" t-esc="bank.name"/>
+                        </t>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">CUIT Emisor</label>
+                    <input class="form-control" type="text" t-model="state.issuer_vat"/>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tipo de Cheque</label>
+                    <select class="form-select" t-model="state.check_type">
+                        <option value="common">Cheque Común</option>
+                        <option value="deferred">Cheque de Pago Diferido (CPD)</option>
+                    </select>
+                </div>
+                <div class="d-flex gap-2">
+                    <div class="form-group flex-grow-1">
+                        <label class="form-label">Fecha de Emisión</label>
+                        <input class="form-control" type="date" t-model="state.issue_date"/>
+                    </div>
+                    <div class="form-group flex-grow-1">
+                        <label class="form-label">Fecha de Cobro</label>
+                        <input class="form-control" type="date" t-model="state.payment_date"/>
+                    </div>
+                </div>
+            </div>
+            <t t-set-slot="footer">
+                <button class="btn btn-primary" t-att-disabled="!isValid" t-on-click="confirm">Confirmar</button>
+                <button class="btn btn-secondary" t-on-click="discard">Cancelar</button>
+            </t>
+        </Dialog>
+    </t>
+</templates>

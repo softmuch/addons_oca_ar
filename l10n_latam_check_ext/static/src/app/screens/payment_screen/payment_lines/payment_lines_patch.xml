@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="l10n_latam_check_ext.PaymentScreenPaymentLines" t-inherit="point_of_sale.PaymentScreenPaymentLines" t-inherit-mode="extension">
+        <xpath expr="//*[hasclass('delete-button')]" position="before">
+            <button t-if="this.isCheckPayment(line)"
+                class="edit-check-button btn btn-link mx-1 px-2"
+                role="button"
+                title="Editar datos del cheque"
+                t-on-click.stop="() => this.editCheckPayment(line)">
+                <i class="fa fa-pencil"/>
+            </button>
+        </xpath>
+    </t>
+</templates>
