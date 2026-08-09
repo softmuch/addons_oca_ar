@@ -10,18 +10,20 @@
                     <label class="form-label">Número de Cheque</label>
                     <input class="form-control" type="text" t-model="state.number" autofocus="autofocus"/>
                 </div>
-                <div class="form-group">
+                <div class="form-group position-relative">
                     <label class="form-label">Banco Emisor</label>
-                    <select class="form-select" t-model.number="state.bank_id">
-                        <option value="">-</option>
-                        <t t-foreach="props.banks" t-as="bank" t-key="bank.id">
-                            <option t-att-value="bank.id" t-esc="bank.name"/>
-                        </t>
-                    </select>
+                    <AutoComplete
+                        placeholder="'Buscar banco...'"
+                        sources="getBankSources()"
+                        value="state.bank_name"
+                        onInput="(params) => this.onBankInput(params)"
+                        autoSelect="true"
+                    />
                 </div>
                 <div class="form-group">
                     <label class="form-label">CUIT Emisor</label>
-                    <input class="form-control" type="text" t-model="state.issuer_vat"/>
+                    <input class="form-control" t-att-class="issuerVatError ? 'is-invalid' : ''" type="text" t-model="state.issuer_vat"/>
+                    <div t-if="issuerVatError" class="text-danger small mt-1" t-esc="issuerVatError"/>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Tipo de Cheque</label>

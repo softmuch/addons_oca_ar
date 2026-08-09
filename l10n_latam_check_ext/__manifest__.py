@@ -17,6 +17,7 @@
         "views/res_config_settings_views.xml",
         "views/pos_payment_views.xml",
         "views/pos_order_views.xml",
+        "views/pos_menu_views.xml",
     ],
     "assets": {
         "point_of_sale._assets_pos": [
