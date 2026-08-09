@@ -2,6 +2,8 @@ import { Component, useState } from "@odoo/owl";
 import { _t } from "@web/core/l10n/translation";
 import { Dialog } from "@web/core/dialog/dialog";
 import { AutoComplete } from "@web/core/autocomplete/autocomplete";
+import { formatFloat } from "@web/core/utils/numbers";
+import { parseFloat } from "@web/views/fields/parsers";
 
 // Same algorithm as Python's stdnum.ar.cuit, used by l10n_latam.check's own
 // `_check_issuer_vat` constraint - validated here too so a bad CUIT is caught
@@ -46,6 +48,7 @@ export class CheckPaymentPopup extends Component {
     setup() {
         const line = this.props.line;
         this.state = useState({
+            amountText: formatFloat(line.getAmount()),
             number: line.l10n_latam_check_number || "",
             bank_id: line.l10n_latam_check_bank_id?.id || false,
             bank_name: line.l10n_latam_check_bank_id?.name || "",
@@ -93,7 +96,15 @@ export class CheckPaymentPopup extends Component {
     }
 
     get amount() {
-        return this.props.line.getAmount();
+        try {
+            return parseFloat(this.state.amountText);
+        } catch {
+            return 0;
+        }
+    }
+
+    formatAmountOnBlur() {
+        this.state.amountText = formatFloat(this.amount);
     }
 
     get issuerVatError() {
@@ -105,7 +116,8 @@ export class CheckPaymentPopup extends Component {
 
     get isValid() {
         return Boolean(
-            this.state.number &&
+            this.amount > 0 &&
+                this.state.number &&
                 this.state.bank_id &&
                 this.state.issue_date &&
                 this.state.payment_date &&
@@ -117,7 +129,7 @@ export class CheckPaymentPopup extends Component {
         if (!this.isValid) {
             return;
         }
-        this.props.getPayload({ ...this.state });
+        this.props.getPayload({ ...this.state, amount: this.amount });
         this.props.close();
     }
 

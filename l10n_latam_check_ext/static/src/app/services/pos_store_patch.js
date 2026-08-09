@@ -15,6 +15,7 @@ patch(PosStore.prototype, {
         if (!payload) {
             return false;
         }
+        line.setAmount(payload.amount);
         line.l10n_latam_check_number = payload.number;
         line.l10n_latam_check_bank_id = payload.bank_id
             ? this.models["res.bank"].get(payload.bank_id)

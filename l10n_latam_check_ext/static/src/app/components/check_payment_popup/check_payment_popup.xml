@@ -3,8 +3,10 @@
     <t t-name="l10n_latam_check_ext.CheckPaymentPopup">
         <Dialog title="props.title" size="'md'">
             <div class="d-flex flex-column gap-2">
-                <div class="fw-bold fs-5 mb-1">
-                    <t t-esc="env.utils.formatCurrency(amount)"/>
+                <div class="form-group">
+                    <label class="form-label">Importe del Cheque</label>
+                    <input class="form-control fw-bold fs-5" type="text" inputmode="decimal"
+                        t-model="state.amountText" t-on-blur="formatAmountOnBlur"/>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Número de Cheque</label>
