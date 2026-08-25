@@ -8,10 +8,15 @@
     "license": "LGPL-3",
     "summary": "Deshabilita el envío automático a ARCA al confirmar factura. "
                "Agrega botón 'Enviar ARCA' manual.",
-    "depends": ["l10n_ar_afipws_fe"],
+    "depends": ["l10n_ar_afipws_fe", "l10n_ar_pos"],
     "data": [
         "views/account_move_view.xml",
     ],
+    "assets": {
+        "point_of_sale._assets_pos": [
+            "l10n_ar_afipws_fe_manual/static/src/payment_screen_patch.js",
+        ],
+    },
     "installable": True,
     "auto_install": False,
     "application": False,
