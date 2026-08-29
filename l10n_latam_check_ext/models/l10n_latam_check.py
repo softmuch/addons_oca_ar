@@ -62,7 +62,7 @@ class L10nLatamCheckExt(models.Model):
         ),
     )
 
-    # ── Check state (cobrado/pagado), synced with pos.payment ─────────────────
+    # ── Check state (cobrado/pagado) ────────────────────────────────────────
     # One field, four values covering both check kinds: 'not_collected'/
     # 'collected' for a check *received* from a customer (payment_method_code
     # 'new_third_party_checks', or still empty -- pos.payment always creates
@@ -71,6 +71,12 @@ class L10nLatamCheckExt(models.Model):
     # ('own_checks'). A single Selection can't vary its label set per record,
     # so all four live on the same field; `_check_state_matches_check_kind`
     # below enforces a record only ever uses the pair that matches its kind.
+    #
+    # This is the only place check_state can be changed -- one check can now
+    # settle several pos.order/pos.payment at once (pay.freely.wizard, in
+    # odoxeus_rioseed), so it can't live as an independently-writable field
+    # on pos.payment anymore. pos.payment.check_state mirrors this as a
+    # plain readonly `related`, which Odoo keeps in sync automatically.
     check_state = fields.Selection(
         selection=[
             ('not_collected', 'No Cobrado'),
@@ -109,18 +115,6 @@ class L10nLatamCheckExt(models.Model):
                 rec.check_state = 'not_paid' if rec.check_state == 'paid' else 'paid'
             else:
                 rec.check_state = 'not_collected' if rec.check_state == 'collected' else 'collected'
-
-    def write(self, vals):
-        res = super().write(vals)
-        if 'check_state' in vals and not self.env.context.get('skip_check_state_sync'):
-            for check in self:
-                payments = self.env['pos.payment'].search([('l10n_latam_check_id', '=', check.id)])
-                for payment in payments:
-                    if payment.check_state != check.check_state:
-                        payment.with_context(skip_check_state_sync=True).write(
-                            {'check_state': check.check_state}
-                        )
-        return res
 
     # ── Expiring soon ────────────────────────────────────────────────────────
 

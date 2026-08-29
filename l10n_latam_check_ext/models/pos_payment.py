@@ -39,18 +39,14 @@ class PosPayment(models.Model):
     l10n_latam_check_payment_id = fields.Many2one(
         "account.payment", related="l10n_latam_check_id.payment_id",
     )
-    # pos.payment only ever represents a check *received* from the customer
-    # (POS never issues its own check), so only the "cliente" pair applies
-    # here -- l10n_latam.check carries the full 4-value selection since it
-    # also covers own-checks issued outside the POS.
+    # A single check can now settle several pos.order/pos.payment at once
+    # (see pay.freely.wizard in odoxeus_rioseed), so check_state has to live
+    # on l10n_latam.check alone (the shared record) -- mirrored here as a
+    # plain readonly related so it still shows/filters/groups on pos.payment,
+    # but can only ever be changed from the check itself.
     check_state = fields.Selection(
-        selection=[
-            ("not_collected", "No Cobrado"),
-            ("collected", "Cobrado"),
-        ],
-        string="Estado del Cheque",
-        default="not_collected",
-        copy=False,
+        related='l10n_latam_check_id.check_state', string="Estado del Cheque",
+        store=True, readonly=True,
     )
 
     @api.onchange('payment_method_id')
@@ -108,14 +104,19 @@ class PosPayment(models.Model):
         return payments
 
     def write(self, vals):
+        # `readonly=True` on a related field only blocks the *form* widget --
+        # it doesn't stop a direct `write()`/attribute assignment from
+        # persisting an arbitrary value into the stored column (the ORM's
+        # own recompute-on-flush, which keeps this in sync with
+        # `l10n_latam_check_id.check_state`, happens via a raw SQL UPDATE at
+        # flush time, never through this method, so blocking here is safe).
+        if 'check_state' in vals:
+            raise UserError(_(
+                "El estado del cheque solo se puede cambiar desde el cheque "
+                "contable (l10n_latam.check), no desde el pago."
+            ))
         res = super().write(vals)
         self._l10n_latam_ensure_check()
-        if 'check_state' in vals and not self.env.context.get('skip_check_state_sync'):
-            for payment in self:
-                if payment.l10n_latam_check_id and payment.l10n_latam_check_id.check_state != payment.check_state:
-                    payment.l10n_latam_check_id.with_context(skip_check_state_sync=True).write(
-                        {'check_state': payment.check_state}
-                    )
         return res
 
     def _l10n_latam_ensure_check(self):
@@ -160,11 +161,6 @@ class PosPayment(models.Model):
                 # l10n_latam_check.py): always the order's own customer,
                 # front or back, regardless of invoicing/payment_id.
                 check_vals['partner_id'] = payment.partner_id.id
-                # Keep both records in sync from the moment the check is
-                # born (same default value on both fields, but explicit here
-                # in case the cashier already flipped it before this runs,
-                # e.g. editing the inline list before the number was final).
-                check_vals['check_state'] = payment.check_state
                 check = self.env['l10n_latam.check'].sudo().create(check_vals)
                 payment.l10n_latam_check_id = check.id
 
