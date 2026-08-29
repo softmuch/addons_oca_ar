@@ -1,6 +1,7 @@
 import logging
 from datetime import timedelta
 from odoo import models, fields, api, _
+from odoo.exceptions import ValidationError
 from odoo.fields import Domain
 
 _logger = logging.getLogger(__name__)
@@ -60,6 +61,66 @@ class L10nLatamCheckExt(models.Model):
             "el plazo de pago diferido (entre 1 y 360 días)."
         ),
     )
+
+    # ── Check state (cobrado/pagado), synced with pos.payment ─────────────────
+    # One field, four values covering both check kinds: 'not_collected'/
+    # 'collected' for a check *received* from a customer (payment_method_code
+    # 'new_third_party_checks', or still empty -- pos.payment always creates
+    # this kind, instantly, before any payment_method_code exists yet), and
+    # 'not_paid'/'paid' for a check the company itself *issues*
+    # ('own_checks'). A single Selection can't vary its label set per record,
+    # so all four live on the same field; `_check_state_matches_check_kind`
+    # below enforces a record only ever uses the pair that matches its kind.
+    check_state = fields.Selection(
+        selection=[
+            ('not_collected', 'No Cobrado'),
+            ('collected', 'Cobrado'),
+            ('not_paid', 'No Pagado'),
+            ('paid', 'Pagado'),
+        ],
+        string='Estado de Cobro/Pago',
+        default='not_collected',
+        copy=False,
+    )
+
+    @api.constrains('check_state')
+    def _check_state_matches_check_kind(self):
+        for rec in self:
+            if not rec.check_state:
+                continue
+            is_own = rec.payment_method_code == 'own_checks'
+            valid = ('not_paid', 'paid') if is_own else ('not_collected', 'collected')
+            if rec.check_state not in valid:
+                raise ValidationError(_(
+                    "El estado '%(state)s' no corresponde a un cheque %(kind)s.",
+                    state=dict(rec._fields['check_state'].selection)[rec.check_state],
+                    kind='propio' if is_own else 'de cliente',
+                ))
+
+    def action_toggle_check_state(self):
+        """Flip between the two states of whichever pair applies to this
+        check's own kind (own vs third-party) -- the form keeps this behind
+        a button rather than a raw editable field since l10n_latam.check's
+        form is otherwise `edit="false"` by design (legal/audit document,
+        not meant to be freely edited)."""
+        for rec in self:
+            is_own = rec.payment_method_code == 'own_checks'
+            if is_own:
+                rec.check_state = 'not_paid' if rec.check_state == 'paid' else 'paid'
+            else:
+                rec.check_state = 'not_collected' if rec.check_state == 'collected' else 'collected'
+
+    def write(self, vals):
+        res = super().write(vals)
+        if 'check_state' in vals and not self.env.context.get('skip_check_state_sync'):
+            for check in self:
+                payments = self.env['pos.payment'].search([('l10n_latam_check_id', '=', check.id)])
+                for payment in payments:
+                    if payment.check_state != check.check_state:
+                        payment.with_context(skip_check_state_sync=True).write(
+                            {'check_state': check.check_state}
+                        )
+        return res
 
     # ── Expiring soon ────────────────────────────────────────────────────────
 

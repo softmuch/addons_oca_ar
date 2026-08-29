@@ -36,11 +36,22 @@
                 <separator/>
                 <filter name="expiring_soon" string="Por vencer"
                         domain="[('is_expiring_soon', '=', True)]"/>
+                <separator/>
+                <filter name="check_state_collected" string="Cobrado" domain="[('check_state', '=', 'collected')]"/>
+                <filter name="check_state_not_collected" string="No Cobrado" domain="[('check_state', '=', 'not_collected')]"/>
+            </filter>
+            <filter name="groupby_issue_state" position="after">
+                <filter name="groupby_check_state" string="Estado de Cobro/Pago" domain="[]"
+                        context="{'group_by': 'check_state'}"/>
             </filter>
         </field>
     </record>
 
-    <!-- Form view: add check_type + issue_date in first group -->
+    <!-- Form view: add check_type + issue_date in first group, plus
+         check_state (badge, always visible) with a toggle button.
+         The form is `edit="false"` by design (legal/audit document), so
+         check_state changes go through action_toggle_check_state instead
+         of raw field editing. -->
     <record id="l10n_latam_check_ext_view_form" model="ir.ui.view">
         <field name="name">l10n_latam_check_ext.view.form</field>
         <field name="model">l10n_latam.check</field>
@@ -49,11 +60,21 @@
             <field name="name" position="after">
                 <field name="check_type"/>
                 <field name="issue_date"/>
+                <field name="check_state" widget="badge"
+                       decoration-success="check_state in ('collected', 'paid')"
+                       decoration-danger="check_state in ('not_collected', 'not_paid')"/>
             </field>
+            <xpath expr="//header" position="inside">
+                <button name="action_toggle_check_state" string="Cambiar Estado de Cobro/Pago"
+                        type="object" class="btn-secondary"/>
+            </xpath>
         </field>
     </record>
 
-    <!-- Own checks list view: add check_type + issue_date columns -->
+    <!-- Own checks list view: add check_type + issue_date + check_state
+         columns. Inherited automatically by the third-party checks list too
+         (l10n_latam_check.view_account_third_party_check_tree itself
+         inherits this same view). -->
     <record id="l10n_latam_check_ext_view_own_check_tree" model="ir.ui.view">
         <field name="name">l10n_latam_check_ext.view.own_check.list</field>
         <field name="model">l10n_latam.check</field>
@@ -62,6 +83,9 @@
             <field name="payment_date" position="before">
                 <field name="check_type" optional="show"/>
                 <field name="issue_date" optional="show"/>
+                <field name="check_state" optional="show" widget="badge"
+                       decoration-success="check_state in ('collected', 'paid')"
+                       decoration-danger="check_state in ('not_collected', 'not_paid')"/>
             </field>
         </field>
     </record>

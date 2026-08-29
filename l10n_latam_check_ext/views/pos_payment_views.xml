@@ -19,6 +19,7 @@
                 <field name="l10n_latam_check_type" invisible="payment_method_type != 'check'"/>
                 <field name="l10n_latam_check_issue_date" invisible="payment_method_type != 'check'"/>
                 <field name="l10n_latam_check_payment_date" invisible="payment_method_type != 'check'"/>
+                <field name="check_state" invisible="payment_method_type != 'check'"/>
                 <field name="l10n_latam_check_id" invisible="not l10n_latam_check_id"/>
                 <field name="l10n_latam_check_payment_id" invisible="1"/>
                 <button name="action_create_l10n_latam_check" string="Crear Pago Contable" type="object"
@@ -37,7 +38,28 @@
                 <field name="l10n_latam_check_number" optional="hide"/>
                 <field name="l10n_latam_check_bank_id" optional="hide"/>
                 <field name="l10n_latam_check_payment_date" optional="hide"/>
+                <field name="check_state" optional="show" widget="badge"
+                       invisible="payment_method_type != 'check'"
+                       decoration-success="check_state in ('collected', 'paid')"
+                       decoration-danger="check_state in ('not_collected', 'not_paid')"/>
             </field>
+        </field>
+    </record>
+
+    <record id="view_pos_payment_search_inherit_check" model="ir.ui.view">
+        <field name="name">pos.payment.search.inherit.check</field>
+        <field name="model">pos.payment</field>
+        <field name="inherit_id" ref="point_of_sale.view_pos_payment_search"/>
+        <field name="arch" type="xml">
+            <filter name="group_by_payment_method" position="before">
+                <filter name="check_state_collected" string="Cobrado" domain="[('check_state', '=', 'collected')]"/>
+                <filter name="check_state_not_collected" string="No Cobrado" domain="[('check_state', '=', 'not_collected')]"/>
+                <separator/>
+            </filter>
+            <filter name="group_by_session" position="after">
+                <filter name="group_by_check_state" string="Estado del Cheque" domain="[]"
+                        context="{'group_by': 'check_state'}"/>
+            </filter>
         </field>
     </record>
 
