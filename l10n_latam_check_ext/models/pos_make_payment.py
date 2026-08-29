@@ -26,6 +26,36 @@ class PosMakePayment(models.TransientModel):
     l10n_latam_check_issue_date = fields.Date(string="Fecha de Emisión")
     l10n_latam_check_payment_date = fields.Date(string="Fecha de Cobro")
 
+    def _l10n_latam_check_validate(self, payment_method):
+        """Raise if this is a check payment with no check number.
+
+        Called from every `check()` override that can create a payment on
+        this wizard -- core's own path (below) AND
+        `odossey_partial_payments_pos`'s (for a `partially_paid` order,
+        which takes over `check()` entirely and never reaches this one).
+        """
+        if payment_method.payment_method_type == 'check' and not self.l10n_latam_check_number:
+            raise UserError(_("Completá el número de cheque antes de continuar."))
+
+    def _l10n_latam_check_payment_vals(self, payment_method):
+        """Extra `pos.payment` create vals for a check payment, or `{}`.
+
+        Duck-typed extension point: any other `check()` override (see
+        `odossey_partial_payments_pos`) can call
+        `getattr(self, '_l10n_latam_check_payment_vals', lambda pm: {})(payment_method)`
+        to pick this up without depending on this (AR-only) module.
+        """
+        if payment_method.payment_method_type != 'check':
+            return {}
+        return {
+            'l10n_latam_check_number': self.l10n_latam_check_number,
+            'l10n_latam_check_bank_id': self.l10n_latam_check_bank_id.id,
+            'l10n_latam_check_issuer_vat': self.l10n_latam_check_issuer_vat,
+            'l10n_latam_check_type': self.l10n_latam_check_type,
+            'l10n_latam_check_issue_date': self.l10n_latam_check_issue_date,
+            'l10n_latam_check_payment_date': self.l10n_latam_check_payment_date,
+        }
+
     def check(self):
         """Full override of core's `check()`.
 
@@ -35,6 +65,11 @@ class PosMakePayment(models.TransientModel):
         dict from outside, so this duplicates the method instead of calling
         super(). Keep in sync with `point_of_sale/wizard/pos_payment.py`'s
         `check()` if core changes it.
+
+        NOTE: this only runs for orders NOT in state 'partially_paid' --
+        `odossey_partial_payments_pos`'s own `check()` override takes over
+        entirely for those (see `_l10n_latam_check_validate`/
+        `_l10n_latam_check_payment_vals` above, called from there too).
         """
         self.ensure_one()
         order = self.env['pos.order'].browse(self.env.context.get('active_id', False))
@@ -43,12 +78,11 @@ class PosMakePayment(models.TransientModel):
                 "Customer is required for %s payment method.",
                 self.payment_method_id.name,
             ))
-        if self.payment_method_id.payment_method_type == 'check' and not self.l10n_latam_check_number:
-            raise UserError(_("Completá el número de cheque antes de continuar."))
 
         currency = order.currency_id
         init_data = self.read()[0]
         payment_method = self.env['pos.payment.method'].browse(init_data['payment_method_id'][0])
+        self._l10n_latam_check_validate(payment_method)
         if not float_is_zero(init_data['amount'], precision_rounding=currency.rounding):
             payment_vals = {
                 'pos_order_id': order.id,
@@ -58,15 +92,7 @@ class PosMakePayment(models.TransientModel):
                 'name': init_data['payment_name'],
                 'payment_method_id': init_data['payment_method_id'][0],
             }
-            if payment_method.payment_method_type == 'check':
-                payment_vals.update({
-                    'l10n_latam_check_number': self.l10n_latam_check_number,
-                    'l10n_latam_check_bank_id': self.l10n_latam_check_bank_id.id,
-                    'l10n_latam_check_issuer_vat': self.l10n_latam_check_issuer_vat,
-                    'l10n_latam_check_type': self.l10n_latam_check_type,
-                    'l10n_latam_check_issue_date': self.l10n_latam_check_issue_date,
-                    'l10n_latam_check_payment_date': self.l10n_latam_check_payment_date,
-                })
+            payment_vals.update(self._l10n_latam_check_payment_vals(payment_method))
             order.add_payment(payment_vals)
 
         if order.state == 'draft' and order._is_pos_order_paid():
