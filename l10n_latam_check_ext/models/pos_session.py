@@ -102,73 +102,85 @@ class PosSession(models.Model):
     # `l10n_latam_new_check_ids` *before* `action_post()` runs, otherwise
     # l10n_latam_check's own payment-amount-vs-checks-amount validation
     # (which runs during post, when the recordset is still empty) blocks it.
+    #
+    # NOTE (odoxeus_rioseed): a check's `l10n_latam.check` record now gets
+    # created instantly on `pos.payment` (create/write), regardless of
+    # invoicing -- see odoxeus_rioseed's `pos_payment.py`. Here, at session
+    # close, we only ever create the `account.payment` (and link it to that
+    # already-existing check) for payments whose order was invoiced; a
+    # check on a never-invoiced order intentionally never gets an
+    # account.payment at all (confirmed with the client). Combining
+    # multiple orders/customers into one `account.payment` -- which is what
+    # `amounts`/`_get_receivable_account` below is built for -- doesn't make
+    # sense once we need to reconcile against each order's own invoice, so
+    # invoiced checks are processed one order at a time here regardless of
+    # this payment method's `split_transactions` setting.
     def _create_combine_account_payment(self, payment_method, amounts, diff_amount):
         if payment_method.payment_method_type != "check":
             return super()._create_combine_account_payment(payment_method, amounts, diff_amount)
 
-        outstanding_account = payment_method.outstanding_account_id
-        destination_account = self._get_receivable_account(payment_method)
-        payment_type = "inbound"
-        if self.currency_id.compare_amounts(amounts['amount'], 0) < 0:
-            payment_type = 'outbound'
-
-        checks = self.env['pos.payment'].search([
+        invoiced_checks = self.env['pos.payment'].search([
             ('session_id', '=', self.id),
             ('payment_method_id', '=', payment_method.id),
             ('l10n_latam_check_number', '!=', False),
+            ('account_move_id', '=', False),
+            ('pos_order_id.account_move', '!=', False),
         ])
+        result = self.env['account.move.line']
+        for payment in invoiced_checks:
+            result |= self._create_invoiced_check_account_payment(payment)
+        return result
 
-        account_payment = self.env['account.payment'].with_context(pos_payment=True).create({
-            'amount': abs(amounts['amount']),
+    def _create_invoiced_check_account_payment(self, payment):
+        """Create the account.payment for one invoiced order's check
+        payment, link it to the check already created instantly on the
+        payment (odoxeus_rioseed), and reconcile it against that order's
+        own invoice receivable line.
+        """
+        order = payment.pos_order_id
+        payment_method = payment.payment_method_id
+        accounting_partner = self.env["res.partner"]._find_accounting_partner(payment.partner_id)
+        receivable_account = accounting_partner.with_company(order.company_id).property_account_receivable_id
+        payment_type = "inbound"
+        if self.currency_id.compare_amounts(payment.amount, 0) < 0:
+            payment_type = 'outbound'
+
+        account_payment = self.env['account.payment'].create({
+            'amount': abs(payment.amount),
+            'partner_id': accounting_partner.id,
             'journal_id': payment_method.journal_id.id,
-            'force_outstanding_account_id': outstanding_account.id,
-            'destination_account_id': destination_account.id,
-            'memo': _('Combine %(payment_method)s POS payments from %(session)s', payment_method=payment_method.name, session=self.name),
+            'force_outstanding_account_id': payment_method.outstanding_account_id.id,
+            'destination_account_id': receivable_account.id,
+            'memo': _('%(payment_method)s POS payment of %(partner)s in %(session)s',
+                      payment_method=payment_method.name, partner=payment.partner_id.display_name, session=self.name),
             'pos_payment_method_id': payment_method.id,
             'pos_session_id': self.id,
-            'company_id': self.company_id.id,
             'payment_type': payment_type,
-            'l10n_latam_new_check_ids': [self._get_l10n_latam_check_vals(p) for p in checks],
         })
-        self._link_l10n_latam_checks(account_payment, checks)
+        payment.l10n_latam_check_id.payment_id = account_payment.id
+        payment.account_move_id = account_payment.move_id.id
 
-        self._ensure_payment_outstanding_account(account_payment, amounts['amount'])
+        self._ensure_payment_outstanding_account(account_payment, payment.amount)
         account_payment.action_post()
 
-        diff_amount_compare_to_zero = self.currency_id.compare_amounts(diff_amount, 0)
-        if diff_amount_compare_to_zero != 0:
-            self._apply_diff_on_account_payment_move(account_payment, payment_method, diff_amount)
-
-        return account_payment.move_id.line_ids.filtered(lambda line: line.account_id == self._get_receivable_account(payment_method))
+        invoice_line = order.account_move.line_ids.filtered(
+            lambda line: line.account_id == receivable_account and not line.reconciled
+        )
+        payment_line = account_payment.move_id.line_ids.filtered(
+            lambda line: line.account_id == receivable_account and not line.reconciled
+        )
+        (invoice_line | payment_line).reconcile()
+        return payment_line
 
     def _create_split_account_payment(self, payment, amounts):
         if payment.payment_method_id.payment_method_type != "check":
             return super()._create_split_account_payment(payment, amounts)
 
-        payment_method = payment.payment_method_id
-        if not payment_method.journal_id:
+        if not payment.pos_order_id.account_move:
+            # Never-invoiced order: this check intentionally never gets an
+            # account.payment (confirmed with the client) -- the
+            # l10n_latam.check already exists on its own, without a
+            # payment_id, created instantly on the pos.payment.
             return self.env['account.move.line']
-        outstanding_account = payment_method.outstanding_account_id
-        accounting_partner = self.env["res.partner"]._find_accounting_partner(payment.partner_id)
-        destination_account = accounting_partner.property_account_receivable_id
-        payment_type = "inbound"
-        if self.currency_id.compare_amounts(amounts['amount'], 0) < 0:
-            payment_type = 'outbound'
 
-        account_payment = self.env['account.payment'].create({
-            'amount': abs(amounts['amount']),
-            'partner_id': accounting_partner.id,
-            'journal_id': payment_method.journal_id.id,
-            'force_outstanding_account_id': outstanding_account.id,
-            'destination_account_id': destination_account.id,
-            'memo': _('%(payment_method)s POS payment of %(partner)s in %(session)s', payment_method=payment_method.name, partner=payment.partner_id.display_name, session=self.name),
-            'pos_payment_method_id': payment_method.id,
-            'pos_session_id': self.id,
-            'payment_type': payment_type,
-            'l10n_latam_new_check_ids': [self._get_l10n_latam_check_vals(payment)] if payment.l10n_latam_check_number else [],
-        })
-        self._link_l10n_latam_checks(account_payment, payment)
-
-        self._ensure_payment_outstanding_account(account_payment, amounts['amount'])
-        account_payment.action_post()
-        return account_payment.move_id.line_ids.filtered(lambda line: line.account_id == accounting_partner.property_account_receivable_id)
+        return self._create_invoiced_check_account_payment(payment)

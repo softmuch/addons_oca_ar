@@ -27,15 +27,29 @@ class PosMakePayment(models.TransientModel):
     l10n_latam_check_payment_date = fields.Date(string="Fecha de Cobro")
 
     def _l10n_latam_check_validate(self, payment_method):
-        """Raise if this is a check payment with no check number.
+        """Raise if this is a check payment with no check number, or with an
+        invalid CUIT.
 
         Called from every `check()` override that can create a payment on
         this wizard -- core's own path (below) AND
         `odossey_partial_payments_pos`'s (for a `partially_paid` order,
         which takes over `check()` entirely and never reaches this one).
+
+        The POS checkout's own check popup validates the CUIT client-side
+        with the same checksum algorithm as `l10n_latam.check`'s own
+        `_check_issuer_vat` constraint (`res.partner._run_vat_checks`) --
+        this wizard had no such validation at all, so it's added here,
+        reusing that same helper instead of reimplementing the checksum.
         """
-        if payment_method.payment_method_type == 'check' and not self.l10n_latam_check_number:
+        if payment_method.payment_method_type != 'check':
+            return
+        if not self.l10n_latam_check_number:
             raise UserError(_("Completá el número de cheque antes de continuar."))
+        if self.l10n_latam_check_issuer_vat:
+            self.env['res.partner']._run_vat_checks(
+                self.config_id.company_id.country_id, self.l10n_latam_check_issuer_vat,
+                partner_name=_("CUIT Emisor"),
+            )
 
     def _l10n_latam_check_payment_vals(self, payment_method):
         """Extra `pos.payment` create vals for a check payment, or `{}`.

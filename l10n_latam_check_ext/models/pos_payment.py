@@ -27,22 +27,110 @@ class PosPayment(models.Model):
     l10n_latam_check_payment_date = fields.Date(string="Fecha de Cobro")
     l10n_latam_check_id = fields.Many2one(
         "l10n_latam.check", string="Cheque", readonly=True, copy=False,
-        help="Cheque contable generado al cerrar la sesión de POS.",
+        help="Cheque contable. Se crea instantáneamente en cuanto el pago "
+             "tiene el número de cheque cargado -- no espera al cierre de "
+             "sesión ni a que la orden se facture.",
+    )
+    # Mirrored for the same reason as `payment_method_type` above: a view
+    # `invisible` expression can't reliably read `l10n_latam_check_id.payment_id`
+    # (dotted path off a many2one) -- the client only ever fetches
+    # `display_name` for that many2one unless the sub-field is a real field
+    # of this record itself.
+    l10n_latam_check_payment_id = fields.Many2one(
+        "account.payment", related="l10n_latam_check_id.payment_id",
     )
 
+    def _create_payment_moves(self, is_reverse=False):
+        """Core calls this at invoice-checkout time (`pos.order.
+        _generate_pos_order_invoice`) to create each payment's account.move
+        and reconcile it against the invoice right away. Check payments
+        never get an account.move/account.payment at that point -- only
+        later, at session close, and only then (see `pos.session.
+        _create_combine_account_payment`/`_create_invoiced_check_account_payment`
+        below). The invoice's own receivable line for a check payment stays
+        open/unreconciled until the session actually closes -- intentional:
+        a third-party check isn't considered truly settled until it's
+        actually processed at that point.
+        """
+        check_payments = self.filtered(lambda p: p.payment_method_id.payment_method_type == 'check')
+        other_payments = self - check_payments
+        if not other_payments:
+            return self.env['account.move']
+        return super(PosPayment, other_payments)._create_payment_moves(is_reverse)
+
+    def create(self, vals_list):
+        payments = super().create(vals_list)
+        payments._l10n_latam_ensure_check()
+        return payments
+
+    def write(self, vals):
+        res = super().write(vals)
+        self._l10n_latam_ensure_check()
+        return res
+
+    def _l10n_latam_ensure_check(self):
+        """Create the `l10n_latam.check` instantly, always, for any check
+        payment that has its number filled in -- regardless of whether the
+        order is invoiced, and without waiting for session close (see
+        `pos.session._create_combine_account_payment`/
+        `_create_split_account_payment` below, which only create the
+        `account.payment` later, for invoiced orders, and link it to this
+        same check instead of creating a new one).
+
+        `l10n_latam.check.payment_id` is redefined as non-required in this
+        module (models/l10n_latam_check.py) precisely to allow this: no
+        account.payment exists yet at this point.
+        """
+        for payment in self:
+            if (
+                payment.payment_method_id.payment_method_type == 'check'
+                and payment.l10n_latam_check_number
+                and not payment.l10n_latam_check_id
+            ):
+                check_vals = payment.session_id._get_l10n_latam_check_vals(payment)[2]
+                # `payment_date` is required on l10n_latam.check itself; the
+                # cashier may not have filled in "Fecha de Cobro" yet, but
+                # the check must still be created right now regardless --
+                # fall back to the payment's own date rather than leaving
+                # this required field empty.
+                if not check_vals.get('payment_date'):
+                    check_vals['payment_date'] = (
+                        fields.Date.to_date(payment.payment_date) if payment.payment_date
+                        else fields.Date.today()
+                    )
+                # `company_id` is `related='payment_id.company_id', store=True`
+                # on l10n_latam.check -- with no payment_id yet, that compute
+                # gives False. Set it explicitly from the pos.payment itself
+                # so the check isn't companyless until the account.payment
+                # eventually gets created.
+                check_vals['company_id'] = payment.company_id.id
+                check = self.env['l10n_latam.check'].sudo().create(check_vals)
+                payment.l10n_latam_check_id = check.id
+
     def action_create_l10n_latam_check(self):
+        """Manually create the account.payment for a check whose order was
+        never invoiced, or whose session already closed before it could be
+        auto-processed (see `pos.session._create_combine_account_payment` in
+        this module, which normally does this automatically at session
+        close for invoiced orders only).
+
+        The `l10n_latam.check` itself already exists by this point (created
+        instantly on the payment, see `_l10n_latam_ensure_check` above) --
+        this only creates the missing account.payment and links it.
+        """
         self.ensure_one()
         if self.payment_method_id.payment_method_type != 'check':
             raise UserError(_("Este pago no es de tipo cheque."))
-        if self.l10n_latam_check_id:
-            raise UserError(_("Este pago ya tiene un cheque asociado."))
-        if self.session_id.state != 'closed':
-            raise UserError(_(
-                "Solo se puede crear el cheque manualmente si la sesión ya está "
-                "cerrada. Con la sesión abierta, el cheque se genera solo al cerrarla."
-            ))
         if not self.l10n_latam_check_number:
             raise UserError(_("Completá los datos del cheque antes de crearlo."))
+        if not self.l10n_latam_check_id:
+            raise UserError(_("Este pago todavía no tiene un cheque creado."))
+        if self.l10n_latam_check_id.payment_id:
+            raise UserError(_("Este cheque ya tiene un pago contable asociado."))
+        if self.session_id.state != 'closed':
+            raise UserError(_(
+                "Solo se puede crear el pago contable manualmente si la sesión ya está cerrada."
+            ))
 
         session = self.session_id
         payment_method = self.payment_method_id
@@ -62,9 +150,9 @@ class PosPayment(models.Model):
             'pos_payment_method_id': payment_method.id,
             'pos_session_id': session.id,
             'payment_type': payment_type,
-            'l10n_latam_new_check_ids': [session._get_l10n_latam_check_vals(self)],
         })
-        session._link_l10n_latam_checks(account_payment, self)
+        self.l10n_latam_check_id.payment_id = account_payment.id
+        self.account_move_id = account_payment.move_id.id
         session._ensure_payment_outstanding_account(account_payment, self.amount)
         account_payment.action_post()
         return account_payment._get_records_action()

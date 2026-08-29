@@ -9,6 +9,21 @@ _logger = logging.getLogger(__name__)
 class L10nLatamCheckExt(models.Model):
     _inherit = 'l10n_latam.check'
 
+    # Checks are now created instantly on pos.payment (see pos_payment.py in
+    # this module), well before there's necessarily any account.payment to
+    # link to -- that only gets created later, at session close, and only
+    # if the order was invoiced. Core's own required=True would block that.
+    payment_id = fields.Many2one(required=False)
+
+    # Core declares this `related='payment_id.company_id', store=True` with
+    # no `readonly=False` -- a readonly related field, so any value passed
+    # explicitly in create()/write() while payment_id is still empty gets
+    # silently dropped and recomputed to False from the (empty) relation.
+    # `readonly=False` makes it a writable related: an explicit value sticks
+    # until payment_id is eventually set, at which point it recomputes from
+    # the real payment as usual.
+    company_id = fields.Many2one(related='payment_id.company_id', store=True, readonly=False)
+
     check_type = fields.Selection(
         selection=[
             ('common', 'Cheque Común'),
