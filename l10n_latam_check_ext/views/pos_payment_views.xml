@@ -5,14 +5,24 @@
         <field name="model">pos.payment</field>
         <field name="inherit_id" ref="point_of_sale.view_pos_payment_form"/>
         <field name="arch" type="xml">
+            <!-- Core's form is edit="0" (view-only popup): without this, none
+                 of the check fields below (nor anything else) can ever be
+                 edited here, regardless of their own readonly attribute. -->
+            <xpath expr="//form" position="attributes">
+                <attribute name="edit">1</attribute>
+            </xpath>
             <field name="transaction_id" position="after">
-                <field name="l10n_latam_check_number" invisible="payment_method_id.payment_method_type != 'check'"/>
-                <field name="l10n_latam_check_bank_id" invisible="payment_method_id.payment_method_type != 'check'"/>
-                <field name="l10n_latam_check_issuer_vat" invisible="payment_method_id.payment_method_type != 'check'"/>
-                <field name="l10n_latam_check_type" invisible="payment_method_id.payment_method_type != 'check'"/>
-                <field name="l10n_latam_check_issue_date" invisible="payment_method_id.payment_method_type != 'check'"/>
-                <field name="l10n_latam_check_payment_date" invisible="payment_method_id.payment_method_type != 'check'"/>
+                <field name="payment_method_type" invisible="1"/>
+                <field name="l10n_latam_check_number" invisible="payment_method_type != 'check'"/>
+                <field name="l10n_latam_check_bank_id" invisible="payment_method_type != 'check'"/>
+                <field name="l10n_latam_check_issuer_vat" invisible="payment_method_type != 'check'"/>
+                <field name="l10n_latam_check_type" invisible="payment_method_type != 'check'"/>
+                <field name="l10n_latam_check_issue_date" invisible="payment_method_type != 'check'"/>
+                <field name="l10n_latam_check_payment_date" invisible="payment_method_type != 'check'"/>
                 <field name="l10n_latam_check_id" invisible="not l10n_latam_check_id"/>
+                <button name="action_create_l10n_latam_check" string="Crear Cheque" type="object"
+                        class="btn-primary"
+                        invisible="payment_method_type != 'check' or l10n_latam_check_id or session_id.state != 'closed'"/>
             </field>
         </field>
     </record>

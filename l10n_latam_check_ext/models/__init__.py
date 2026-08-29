@@ -6,4 +6,5 @@ from . import res_config_settings
 from . import res_bank
 from . import pos_payment_method
 from . import pos_payment
+from . import pos_make_payment
 from . import pos_session

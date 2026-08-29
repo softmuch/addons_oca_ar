@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_pos_payment_inherit_check" model="ir.ui.view">
+        <field name="name">pos.make.payment.form.inherit.check</field>
+        <field name="model">pos.make.payment</field>
+        <field name="inherit_id" ref="point_of_sale.view_pos_payment"/>
+        <field name="arch" type="xml">
+            <field name="payment_name" position="after">
+                <field name="payment_method_type" invisible="1"/>
+                <field name="l10n_latam_check_number" invisible="payment_method_type != 'check'"/>
+                <field name="l10n_latam_check_bank_id" invisible="payment_method_type != 'check'"/>
+                <field name="l10n_latam_check_issuer_vat" invisible="payment_method_type != 'check'"/>
+                <field name="l10n_latam_check_type" invisible="payment_method_type != 'check'"/>
+                <field name="l10n_latam_check_issue_date" invisible="payment_method_type != 'check'"/>
+                <field name="l10n_latam_check_payment_date" invisible="payment_method_type != 'check'"/>
+            </field>
+        </field>
+    </record>
+
+</odoo>

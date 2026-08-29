@@ -16,6 +16,7 @@
         "views/l10n_latam_check_ext_views.xml",
         "views/res_config_settings_views.xml",
         "views/pos_payment_views.xml",
+        "views/pos_make_payment_views.xml",
         "views/pos_order_views.xml",
         "views/pos_menu_views.xml",
     ],
