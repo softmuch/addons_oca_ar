@@ -1,4 +1,4 @@
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 from odoo.tools import float_is_zero
 
@@ -26,9 +26,21 @@ class PosMakePayment(models.TransientModel):
     l10n_latam_check_issue_date = fields.Date(string="Fecha de Emisión")
     l10n_latam_check_payment_date = fields.Date(string="Fecha de Cobro")
 
+    @api.onchange('payment_method_id')
+    def _onchange_payment_method_id_l10n_latam_check(self):
+        """Suggest the order's own partner CUIT as the check issuer's --
+        same convenience default as `pos.payment`'s own onchange, for the
+        (very common) case where the customer pays with their own check.
+        """
+        if self.payment_method_id.payment_method_type != 'check' or self.l10n_latam_check_issuer_vat:
+            return
+        order = self.env['pos.order'].browse(self.env.context.get('active_id', False))
+        if order.partner_id.vat:
+            self.l10n_latam_check_issuer_vat = order.partner_id.vat
+
     def _l10n_latam_check_validate(self, payment_method):
-        """Raise if this is a check payment with no check number, or with an
-        invalid CUIT.
+        """Raise if this is a check payment with no check number, an invalid
+        CUIT, or no real customer chosen.
 
         Called from every `check()` override that can create a payment on
         this wizard -- core's own path (below) AND
@@ -43,6 +55,8 @@ class PosMakePayment(models.TransientModel):
         """
         if payment_method.payment_method_type != 'check':
             return
+        order = self.env['pos.order'].browse(self.env.context.get('active_id', False))
+        self.env['pos.payment']._l10n_latam_check_require_real_partner(order.partner_id)
         if not self.l10n_latam_check_number:
             raise UserError(_("Completá el número de cheque antes de continuar."))
         if self.l10n_latam_check_issuer_vat:

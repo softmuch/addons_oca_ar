@@ -15,6 +15,7 @@
     "assets": {
         "point_of_sale._assets_pos": [
             "l10n_ar_afipws_fe_manual/static/src/payment_screen_patch.js",
+            "l10n_ar_afipws_fe_manual/static/src/pos_order_patch.js",
         ],
     },
     "installable": True,

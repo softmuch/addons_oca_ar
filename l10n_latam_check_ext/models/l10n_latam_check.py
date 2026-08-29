@@ -24,6 +24,14 @@ class L10nLatamCheckExt(models.Model):
     # the real payment as usual.
     company_id = fields.Many2one(related='payment_id.company_id', store=True, readonly=False)
 
+    # Same reasoning, but core's own `partner_id` isn't even `store=True` --
+    # a non-stored related field has nothing to persist a value into at all
+    # while payment_id is empty, so it must be redeclared with both
+    # store=True and readonly=False to hold an explicit value (set from the
+    # pos.order's own partner in `pos_payment.py`) until payment_id is
+    # eventually set.
+    partner_id = fields.Many2one(related='payment_id.partner_id', store=True, readonly=False)
+
     check_type = fields.Selection(
         selection=[
             ('common', 'Cheque Común'),

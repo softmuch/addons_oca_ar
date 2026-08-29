@@ -1,4 +1,4 @@
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
 
@@ -39,6 +39,37 @@ class PosPayment(models.Model):
     l10n_latam_check_payment_id = fields.Many2one(
         "account.payment", related="l10n_latam_check_id.payment_id",
     )
+
+    @api.onchange('payment_method_id')
+    def _onchange_payment_method_id_l10n_latam_check(self):
+        """Suggest the order's own partner CUIT as the check issuer's -- the
+        cashier/backoffice can still edit it, this is just a convenient
+        default for the (very common) case where the customer is paying
+        with their own check.
+        """
+        if (
+            self.payment_method_id.payment_method_type == 'check'
+            and not self.l10n_latam_check_issuer_vat
+            and self.pos_order_id.partner_id.vat
+        ):
+            self.l10n_latam_check_issuer_vat = self.pos_order_id.partner_id.vat
+
+    @api.model
+    def _l10n_latam_check_require_real_partner(self, partner):
+        """A check payment must be traceable to a real customer -- raise if
+        `partner` is empty or is the "Consumidor Final Anónimo" walk-in
+        customer (`l10n_ar.par_cfa`, loaded into the POS frontend as
+        `pos.config._consumidor_final_anonimo_id` -- see
+        `l10n_ar_pos/models/pos_config.py`). `raise_if_not_found=False` in
+        case `l10n_ar` isn't installed; a plain "must pick someone" check is
+        still applied either way.
+        """
+        anonymous = self.env.ref('l10n_ar.par_cfa', raise_if_not_found=False)
+        if not partner or (anonymous and partner.id == anonymous.id):
+            raise UserError(_(
+                "Elegí un cliente distinto de \"Consumidor Final Anónimo\" "
+                "antes de cargar un pago con cheque."
+            ))
 
     def _create_payment_moves(self, is_reverse=False):
         """Core calls this at invoice-checkout time (`pos.order.
@@ -87,6 +118,7 @@ class PosPayment(models.Model):
                 and payment.l10n_latam_check_number
                 and not payment.l10n_latam_check_id
             ):
+                self._l10n_latam_check_require_real_partner(payment.partner_id)
                 check_vals = payment.session_id._get_l10n_latam_check_vals(payment)[2]
                 # `payment_date` is required on l10n_latam.check itself; the
                 # cashier may not have filled in "Fecha de Cobro" yet, but
@@ -104,6 +136,11 @@ class PosPayment(models.Model):
                 # so the check isn't companyless until the account.payment
                 # eventually gets created.
                 check_vals['company_id'] = payment.company_id.id
+                # Same story as `company_id` above, but for `partner_id`
+                # (also redefined store=True, readonly=False in
+                # l10n_latam_check.py): always the order's own customer,
+                # front or back, regardless of invoicing/payment_id.
+                check_vals['partner_id'] = payment.partner_id.id
                 check = self.env['l10n_latam.check'].sudo().create(check_vals)
                 payment.l10n_latam_check_id = check.id
 

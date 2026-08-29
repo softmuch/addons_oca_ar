@@ -47,12 +47,18 @@ export class CheckPaymentPopup extends Component {
 
     setup() {
         const line = this.props.line;
+        // Suggest the order's own partner CUIT as the check issuer's -- the
+        // cashier can still edit it, this is just a convenient default for
+        // the (very common) case where the customer pays with their own
+        // check. `addNewPaymentLine` (payment_screen_patch.js) already
+        // requires a real (non-anonymous) partner before this popup opens.
+        const partnerVat = line.pos_order_id?.partner_id?.vat || "";
         this.state = useState({
             amountText: formatFloat(line.getAmount()),
             number: line.l10n_latam_check_number || "",
             bank_id: line.l10n_latam_check_bank_id?.id || false,
             bank_name: line.l10n_latam_check_bank_id?.name || "",
-            issuer_vat: line.l10n_latam_check_issuer_vat || "",
+            issuer_vat: line.l10n_latam_check_issuer_vat || partnerVat,
             check_type: line.l10n_latam_check_type || "common",
             issue_date: this._toIso(line.l10n_latam_check_issue_date) || this._today(),
             payment_date: this._toIso(line.l10n_latam_check_payment_date) || this._today(),
