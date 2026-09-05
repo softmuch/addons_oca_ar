@@ -19,10 +19,68 @@
                     data-hotkey="a"
                 />
             </xpath>
+            <!-- Banner: número provisorio mientras no se envía a ARCA -->
+            <xpath expr="//div[hasclass('oe_title')]" position="after">
+                <div
+                    class="alert alert-warning mb-0"
+                    role="alert"
+                    invisible="not l10n_ar_provisional_number"
+                >
+                    <field name="l10n_ar_provisional_number" readonly="1" />
+                    — pendiente de autorización ARCA, no es el número oficial.
+                </div>
+            </xpath>
+            <!--
+                Título: en borrador se edita "name" (secuencia real / placeholder
+                nativo de Odoo). Fuera de borrador se muestra display_name_manual
+                (name si ARCA ya lo confirmó, l10n_ar_provisional_number si sigue
+                pendiente) en modo solo lectura.
+            -->
+            <xpath expr="//h1/field[@name='name']" position="attributes">
+                <attribute
+                    name="invisible"
+                >not (name or name_placeholder or quick_edit_mode) or state != 'draft'</attribute>
+            </xpath>
+            <xpath expr="//h1/field[@name='name']" position="after">
+                <field
+                    name="display_name_manual"
+                    readonly="1"
+                    invisible="state == 'draft'"
+                />
+            </xpath>
             <!-- Campo necesario para evaluar invisible del botón -->
             <xpath expr="//field[@name='afip_result']" position="before">
                 <field name="needs_afip_auth" invisible="1" />
             </xpath>
+        </field>
+    </record>
+
+    <!--
+        Lista de facturas: reemplaza la columna "name" por display_name_manual
+        (name si ARCA ya lo confirmó, l10n_ar_provisional_number si sigue
+        pendiente).
+    -->
+    <record id="view_invoice_tree_afipws_manual" model="ir.ui.view">
+        <field name="name">account.invoice.list.afipws.manual</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_invoice_tree" />
+        <field name="arch" type="xml">
+            <!-- Fila en amarillo: confirmada pero pendiente de envío a ARCA -->
+            <xpath expr="//list" position="attributes">
+                <attribute name="decoration-warning">needs_afip_auth</attribute>
+            </xpath>
+            <field name="name" position="attributes">
+                <attribute name="column_invisible">1</attribute>
+            </field>
+            <field name="name" position="after">
+                <field name="needs_afip_auth" column_invisible="1" />
+                <field name="l10n_ar_provisional_number" column_invisible="1" />
+                <field
+                    name="display_name_manual"
+                    string="Número"
+                    decoration-bf="1"
+                />
+            </field>
         </field>
     </record>
 

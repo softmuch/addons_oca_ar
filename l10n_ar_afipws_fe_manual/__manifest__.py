@@ -11,6 +11,7 @@
     "depends": ["l10n_ar_afipws_fe", "l10n_ar_pos"],
     "data": [
         "views/account_move_view.xml",
+        "views/res_config_settings.xml",
     ],
     "assets": {
         "point_of_sale._assets_pos": [

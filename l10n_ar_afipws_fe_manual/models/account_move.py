@@ -17,6 +17,25 @@ class AccountMove(models.Model):
         compute="_compute_needs_afip_auth",
         string="Necesita autorización ARCA",
     )
+    l10n_ar_provisional_number = fields.Char(
+        string="Número provisorio (pendiente ARCA)",
+        copy=False,
+        readonly=True,
+    )
+    display_name_manual = fields.Char(
+        string="Número",
+        compute="_compute_display_name_manual",
+    )
+
+    @api.depends("name", "l10n_ar_provisional_number")
+    def _compute_display_name_manual(self):
+        """name once ARCA confirmed it (or for anything outside this
+        manual-AR flow); l10n_ar_provisional_number while still pending."""
+        for move in self:
+            if move.name and move.name != "/":
+                move.display_name_manual = move.name
+            else:
+                move.display_name_manual = move.l10n_ar_provisional_number or move.name
 
     @api.depends(
         "state",
@@ -36,26 +55,67 @@ class AccountMove(models.Model):
                 and not move.afip_auth_code
             )
 
-    # JUST FOR TESTING PURPOSES: AVOID SENDING INVOICES TO ARCA FROM THE POS
-    # def _post(self, soft=True):
-    #     """Override: skip AFIP auto-send on post. User must click 'Enviar ARCA'."""
-    #     return super(
-    #         AccountMove, self.with_context(**{_MANUAL_CONTEXT_KEY: True})
-    #     )._post(soft=soft)
+    def _needs_provisional_number(self):
+        self.ensure_one()
+        return (
+            self.env.context.get(_MANUAL_CONTEXT_KEY)
+            and self.company_id.account_fiscal_country_id.code == "AR"
+            and self.is_invoice()
+            and self.move_type in ["out_invoice", "out_refund"]
+            and bool(self.journal_id.afip_ws)
+            and not self.afip_auth_code
+        )
+
+    def _set_next_sequence(self):
+        """Override: while a manually-posted AR invoice hasn't been sent to
+        ARCA yet, don't consume/reserve a real official number. Keep `name`
+        as the standard Odoo placeholder ("/") and only expose a local,
+        non-official preview (`l10n_ar_provisional_number`) computed the
+        same way core would, so it never conflicts with the sequence chain
+        of invoices actually confirmed by ARCA. The real `name` is only
+        materialized (from ARCA's CbteDesde) in action_authorize_afip_manual,
+        via the fe module's override of this same method."""
+        self.ensure_one()
+        if self._needs_provisional_number():
+            # Reimplements _get_next_sequence_format() but without its
+            # "brand new sequence -> seq forced to 0" reset: for AR/afip_ws
+            # journals, _get_starting_sequence() already seeds the real last
+            # known number (locally or from AFIP), so we always bump +1 from
+            # whatever was parsed, be it a real previous local invoice or
+            # that starting point. We never call _locked_increment() here
+            # (that would reserve/consume a real slot) — this is preview only.
+            last_sequence = self._get_last_sequence() or (
+                self._get_last_sequence(relaxed=True) or self._get_starting_sequence()
+            )
+            format_string, format_values = self._get_sequence_format_param(last_sequence)
+            format_values["seq"] += 1
+            preview = format_string.format(**format_values)
+            self.l10n_ar_provisional_number = "DRAFT-%s" % preview
+            self.name = "/"
+            return
+        super()._set_next_sequence()
 
     def _post(self, soft=True):
         """Override: skip AFIP auto-send on post, except for invoices coming
         from POS (order._generate_pos_order_invoice already sets
-        pos_order_ids on the move before calling _post). User must click
-        'Enviar ARCA' for manually-created invoices."""
+        pos_order_ids on the move before calling _post), or for companies
+        that opted out of manual authorization
+        (company_id.l10n_ar_afipws_manual_auth = False). User must click
+        'Enviar ARCA' for manually-created invoices otherwise."""
         from_pos = self.filtered("pos_order_ids")
-        manual = self - from_pos
+        backend = self - from_pos
+        manual = backend.filtered("company_id.l10n_ar_afipws_manual_auth")
+        auto = backend - manual
         posted = self.env["account.move"]
-        # From backend
+        # From backend, company requires manual ARCA authorization
         if manual:
             posted |= super(
                 AccountMove, manual.with_context(**{_MANUAL_CONTEXT_KEY: True})
             )._post(soft=soft)
+        # From backend, company kept automatic authorization (standard
+        # l10n_ar_afipws_fe behavior)
+        if auto:
+            posted |= super(AccountMove, auto)._post(soft=soft)
         # From POS
         if from_pos:
             posted |= super(AccountMove, from_pos)._post(soft=soft)
@@ -93,6 +153,15 @@ class AccountMove(models.Model):
             )
 
         approved, rejected = to_authorize.authorize_afip()
+
+        # Materialize the real, ARCA-confirmed number (was left as "/" +
+        # l10n_ar_provisional_number preview at action_post time). Reuses the
+        # fe module's _set_next_sequence override: since afip_auth_code and
+        # afip_xml_response are now set, it reads CbteDesde straight from
+        # ARCA's response instead of any locally-guessed number.
+        for move in approved:
+            move._set_next_sequence()
+            move.l10n_ar_provisional_number = False
 
         # Single invoice rejected → raise so error shows prominently in form
         if len(self) == 1 and rejected:
