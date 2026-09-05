@@ -95,6 +95,13 @@ class AccountMove(models.Model):
             return
         super()._set_next_sequence()
 
+    # FOR TESTING PURPOSES
+    # def _post(self, soft=True):
+    #     """Override: skip AFIP auto-send on post. User must click 'Enviar ARCA'."""
+    #     return super(
+    #         AccountMove, self.with_context(**{_MANUAL_CONTEXT_KEY: True})
+    #     )._post(soft=soft)
+
     def _post(self, soft=True):
         """Override: skip AFIP auto-send on post, except for invoices coming
         from POS (order._generate_pos_order_invoice already sets
