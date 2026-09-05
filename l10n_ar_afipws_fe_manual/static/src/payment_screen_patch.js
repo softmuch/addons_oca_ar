@@ -10,4 +10,10 @@ patch(PaymentScreen.prototype, {
             this.currentOrder.set_to_invoice(false);
         }
     },
+    async validateOrder(isForceValidate) {
+        if (this.pos.isArgentineanCompany() && this.currentOrder.is_to_invoice()) {
+            await this.pos.ensureAfipResponsibilityType(this.currentOrder.get_partner());
+        }
+        return super.validateOrder(...arguments);
+    },
 });
