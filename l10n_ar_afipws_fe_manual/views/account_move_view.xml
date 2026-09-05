@@ -65,10 +65,15 @@
         <field name="model">account.move</field>
         <field name="inherit_id" ref="account.view_invoice_tree" />
         <field name="arch" type="xml">
+            <!-- Fila en amarillo: confirmada pero pendiente de envío a ARCA -->
+            <xpath expr="//list" position="attributes">
+                <attribute name="decoration-warning">needs_afip_auth</attribute>
+            </xpath>
             <field name="name" position="attributes">
                 <attribute name="column_invisible">1</attribute>
             </field>
             <field name="name" position="after">
+                <field name="needs_afip_auth" column_invisible="1" />
                 <field name="l10n_ar_provisional_number" column_invisible="1" />
                 <field
                     name="display_name_manual"
