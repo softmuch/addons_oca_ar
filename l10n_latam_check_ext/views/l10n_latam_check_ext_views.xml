@@ -13,15 +13,17 @@
     <!-- Default "On hand" filter on that same list: originally required a
          real account.payment (`current_journal_id` is related off it), so it
          never matched our instantly-created, not-yet-accounted checks either.
-         Redefined against `issue_state` (only truly 'handed' once reconciled
-         via an outstanding_line_id, see l10n_latam_check core) instead. -->
+         Redefined against `check_state` instead: `issue_state` (core) is only
+         ever set for own checks posted through core's own flow, so it's empty
+         for every check we create. "On hand" = still ours: neither cashed
+         ('paid') nor handed over ('transferred'). -->
     <record id="l10n_latam_check_ext_view_third_party_checks_search" model="ir.ui.view">
         <field name="name">l10n_latam_check_ext.view.third_party_checks.search</field>
         <field name="model">l10n_latam.check</field>
         <field name="inherit_id" ref="l10n_latam_check.view_account_payment_third_party_checks_search"/>
         <field name="arch" type="xml">
             <filter name="checks_on_hand" position="attributes">
-                <attribute name="domain">[('issue_state', '!=', 'handed'), ('check_state', '!=', 'transferred')]</attribute>
+                <attribute name="domain">[('check_state', 'not in', ['transferred', 'paid'])]</attribute>
             </filter>
         </field>
     </record>
@@ -40,10 +42,13 @@
                 <filter name="check_state_collected" string="Cobrado / Pagado" domain="[('check_state', '=', 'paid')]"/>
                 <filter name="check_state_not_collected" string="No Cobrado / No Pagado" domain="[('check_state', '=', 'not_paid')]"/>
                 <filter name="check_state_transferred" string="Girado" domain="[('check_state', '=', 'transferred')]"/>
+                <filter name="check_state_pending" string="Pendientes (no pagados)" domain="[('check_state', 'not in', ['paid'])]"/>
             </filter>
             <filter name="groupby_issue_state" position="after">
-                <filter name="groupby_check_state" string="Estado" domain="[]"
+                <filter name="groupby_check_state" string="Estado de Cobro (terceros)" domain="[]"
                         context="{'group_by': 'check_state_third'}"/>
+                <filter name="groupby_check_state_own" string="Estado de Pago (propios)" domain="[]"
+                        context="{'group_by': 'check_state_own'}"/>
             </filter>
         </field>
     </record>
@@ -84,6 +89,30 @@
         </field>
     </record>
 
+    <!-- "Cheques Propios" of the Facturación app (core's "Own Checks"): same
+         domain as the Compras / Punto de venta ones (own checks, whether or
+         not they went through core's own accounting flow) and the same
+         predefined filter: everything not yet paid. -->
+    <record id="l10n_latam_check.action_own_check" model="ir.actions.act_window">
+        <field name="domain">[('check_kind', '=', 'own')]</field>
+        <field name="context">{'search_default_check_state_pending': 1}</field>
+    </record>
+
+    <!-- Core's own check form shows `issue_state` as a statusbar and its
+         list as a badge, but it's only ever set for own checks posted
+         through core's accounting flow - empty for the ones we create. -->
+    <record id="l10n_latam_check_ext_view_form_issue_state" model="ir.ui.view">
+        <field name="name">l10n_latam_check_ext.view.form.issue_state</field>
+        <field name="model">l10n_latam.check</field>
+        <field name="inherit_id" ref="l10n_latam_check.l10n_latam_check_view_form"/>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <field name="issue_state" position="attributes">
+                <attribute name="invisible">not issue_state</attribute>
+            </field>
+        </field>
+    </record>
+
     <!-- Own checks list view: add check_type + issue_date + check_state
          columns. Inherited automatically by the third-party checks list too
          (l10n_latam_check.view_account_third_party_check_tree itself
@@ -93,6 +122,9 @@
         <field name="model">l10n_latam.check</field>
         <field name="inherit_id" ref="l10n_latam_check.view_account_own_check_tree"/>
         <field name="arch" type="xml">
+            <field name="issue_state" position="attributes">
+                <attribute name="optional">hide</attribute>
+            </field>
             <field name="payment_date" position="before">
                 <field name="check_type" optional="show"/>
                 <field name="issue_date" optional="show"/>

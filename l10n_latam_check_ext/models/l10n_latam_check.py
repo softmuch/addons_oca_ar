@@ -134,11 +134,19 @@ class L10nLatamCheckExt(models.Model):
         store=True,
     )
 
-    @api.depends('check_state')
+    @api.depends('check_state', 'check_kind', 'issue_state')
     def _compute_check_state_display(self):
         for rec in self:
-            rec.check_state_third = rec.check_state
-            rec.check_state_own = rec.check_state if rec.check_state != 'transferred' else False
+            is_own = rec.check_kind == 'own'
+            rec.check_state_third = False if is_own else rec.check_state
+            if not is_own:
+                rec.check_state_own = False
+            elif rec.issue_state == 'debited':
+                # Own check cashed by the bank (its outstanding line got
+                # reconciled against the statement): it is paid.
+                rec.check_state_own = 'paid'
+            else:
+                rec.check_state_own = rec.check_state if rec.check_state != 'transferred' else False
 
     @api.constrains('check_state', 'check_kind')
     def _check_state_matches_check_kind(self):
@@ -271,7 +279,6 @@ class L10nLatamCheckExt(models.Model):
                 continue
             target_date = today + timedelta(days=alert_days)
             checks = self.sudo().search([
-                # ('issue_state', '=', 'handed'),
                 ('payment_date', '=', target_date),
                 ('payment_method_code', 'in', payment_method_codes),
                 ('company_id', '=', company.id),
