@@ -29,6 +29,25 @@
         </field>
     </record>
 
+    <!-- Read-only copy of the payment form (primary view: inherits core's
+         form together with every extension of it, check fields here,
+         purchase fields in odossey_purchase_pos_payment): what opens when a
+         payment is clicked from an order's payments list. -->
+    <record id="view_pos_payment_form_readonly" model="ir.ui.view">
+        <field name="name">pos.payment.form.readonly</field>
+        <field name="model">pos.payment</field>
+        <field name="inherit_id" ref="point_of_sale.view_pos_payment_form"/>
+        <field name="mode">primary</field>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="attributes">
+                <attribute name="edit">0</attribute>
+                <attribute name="create">0</attribute>
+                <attribute name="delete">0</attribute>
+            </xpath>
+        </field>
+    </record>
+
     <record id="view_pos_payment_tree_inherit_check" model="ir.ui.view">
         <field name="name">pos.payment.list.inherit.check</field>
         <field name="model">pos.payment</field>

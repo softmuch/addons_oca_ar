@@ -5,6 +5,48 @@
         <field name="model">pos.order</field>
         <field name="inherit_id" ref="point_of_sale.view_pos_pos_form"/>
         <field name="arch" type="xml">
+            <!-- Payments tab: an order still in draft keeps core's inline
+                 editable list. Any other order shows the same payments in
+                 a NON-editable list instead: clicking a row opens that
+                 payment in a read-only form with all its information
+                 (card + check data). An editable list would only offer
+                 the small "open" button at the end of each row. -->
+            <xpath expr="//field[@name='payment_ids']" position="attributes">
+                <attribute name="invisible">state != 'draft'</attribute>
+                <attribute name="context">{'form_view_ref': 'l10n_latam_check_ext.view_pos_payment_form_readonly'}</attribute>
+            </xpath>
+            <xpath expr="//field[@name='payment_ids']" position="after">
+                <field name="payment_ids" colspan="4" nolabel="1" readonly="1"
+                       invisible="state == 'draft'"
+                       context="{'form_view_ref': 'l10n_latam_check_ext.view_pos_payment_form_readonly'}">
+                    <list string="Payments" create="0" delete="0">
+                        <field name="currency_id" column_invisible="True"/>
+                        <field name="payment_method_type" column_invisible="True"/>
+                        <field name="payment_date"/>
+                        <field name="payment_method_id"/>
+                        <field name="amount"/>
+                        <field name="payment_method_payment_mode" optional="hide"/>
+                        <field name="card_no" optional="hide"/>
+                        <field name="card_brand" string="Card's Brand" optional="hide"/>
+                        <field name="cardholder_name" optional="hide"/>
+                        <field name="l10n_latam_check_number" optional="hide"/>
+                        <field name="l10n_latam_check_bank_id" optional="hide"/>
+                        <field name="l10n_latam_check_issuer_vat" optional="hide"/>
+                        <field name="l10n_latam_check_type" optional="hide"/>
+                        <field name="l10n_latam_check_issue_date" optional="hide"/>
+                        <field name="l10n_latam_check_payment_date" optional="hide"/>
+                    </list>
+                </field>
+            </xpath>
+            <xpath expr="//field[@name='payment_ids']/list/field[@name='card_no']" position="attributes">
+                <attribute name="optional">hide</attribute>
+            </xpath>
+            <xpath expr="//field[@name='payment_ids']/list/field[@name='card_brand']" position="attributes">
+                <attribute name="optional">hide</attribute>
+            </xpath>
+            <xpath expr="//field[@name='payment_ids']/list/field[@name='cardholder_name']" position="attributes">
+                <attribute name="optional">hide</attribute>
+            </xpath>
             <xpath expr="//field[@name='payment_ids']/list/field[@name='amount']" position="after">
                 <field name="l10n_latam_check_number" optional="hide"/>
                 <field name="l10n_latam_check_bank_id" optional="hide"/>
