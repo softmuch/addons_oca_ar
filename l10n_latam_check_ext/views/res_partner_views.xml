@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Defaults for the company's own issued checks, right under its bank
+         accounts (Invoicing tab of the company's partner). -->
+    <record id="res_partner_view_form_check_defaults" model="ir.ui.view">
+        <field name="name">res.partner.form.check.defaults</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="account.view_partner_property_form"/>
+        <field name="arch" type="xml">
+            <field name="bank_ids" position="after">
+                <field name="default_bank_id"
+                       domain="[('partner_id', '=', id)]"
+                       options="{'no_create': True}"
+                       invisible="not is_company"
+                       groups="account.group_account_invoice,account.group_account_readonly"/>
+                <field name="default_check_type"
+                       invisible="not is_company"
+                       groups="account.group_account_invoice,account.group_account_readonly"/>
+            </field>
+        </field>
+    </record>
+</odoo>
