@@ -162,6 +162,30 @@ class L10nLatamCheckExt(models.Model):
                     name=rec.name,
                 ))
 
+    # ── Edit / lock ──────────────────────────────────────────────────────────
+    # The check forms are read-only by design (legal/audit document,
+    # `edit="false"`). "Editar" reopens the same record in a twin form view
+    # that is editable, "Bloquear" reopens it in the read-only one again.
+    def _action_open_form_view(self, view_xmlid):
+        self.ensure_one()
+        view = self.env.ref(view_xmlid)
+        return {
+            'type': 'ir.actions.act_window',
+            'name': self.display_name,
+            'res_model': self._name,
+            'res_id': self.id,
+            'view_mode': 'form',
+            'views': [(view.id, 'form')],
+            'target': 'current',
+            'context': dict(self.env.context),
+        }
+
+    def action_edit_check(self):
+        return self._action_open_form_view('l10n_latam_check_ext.l10n_latam_check_view_form_edit')
+
+    def action_lock_check(self):
+        return self._action_open_form_view('l10n_latam_check.l10n_latam_check_view_form')
+
     def action_mark_paid(self):
         """Cobrado (third-party check) / Pagado (own check) -- the form is
         `edit="false"` by design (legal/audit document), so the state goes

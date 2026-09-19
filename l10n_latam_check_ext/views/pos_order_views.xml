@@ -29,12 +29,12 @@
                         <field name="card_no" optional="hide"/>
                         <field name="card_brand" string="Card's Brand" optional="hide"/>
                         <field name="cardholder_name" optional="hide"/>
-                        <field name="l10n_latam_check_number" optional="hide"/>
-                        <field name="l10n_latam_check_bank_id" optional="hide"/>
-                        <field name="l10n_latam_check_issuer_vat" optional="hide"/>
-                        <field name="l10n_latam_check_type" optional="hide"/>
-                        <field name="l10n_latam_check_issue_date" optional="hide"/>
-                        <field name="l10n_latam_check_payment_date" optional="hide"/>
+                        <field name="l10n_latam_check_number" column_invisible="1"/>
+                        <field name="l10n_latam_check_bank_id" column_invisible="1"/>
+                        <field name="l10n_latam_check_issuer_vat" column_invisible="1"/>
+                        <field name="l10n_latam_check_type" column_invisible="1"/>
+                        <field name="l10n_latam_check_issue_date" column_invisible="1"/>
+                        <field name="l10n_latam_check_payment_date" column_invisible="1"/>
                     </list>
                 </field>
             </xpath>
@@ -48,9 +48,9 @@
                 <attribute name="optional">hide</attribute>
             </xpath>
             <xpath expr="//field[@name='payment_ids']/list/field[@name='amount']" position="after">
-                <field name="l10n_latam_check_number" optional="hide"/>
-                <field name="l10n_latam_check_bank_id" optional="hide"/>
-                <field name="l10n_latam_check_payment_date" optional="hide"/>
+                <field name="l10n_latam_check_number" column_invisible="1"/>
+                <field name="l10n_latam_check_bank_id" column_invisible="1"/>
+                <field name="l10n_latam_check_payment_date" column_invisible="1"/>
             </xpath>
         </field>
     </record>

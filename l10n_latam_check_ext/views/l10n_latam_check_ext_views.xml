@@ -76,6 +76,8 @@
                        decoration-danger="check_state_own == 'not_paid'"/>
             </field>
             <xpath expr="//header" position="inside">
+                <button name="action_edit_check" string="Editar" type="object" class="btn-secondary"
+                        groups="account.group_account_invoice"/>
                 <field name="check_state" invisible="1"/>
                 <button name="action_mark_paid" string="Marcar como Cobrado" type="object" class="btn-secondary"
                         invisible="check_kind != 'third_party' or check_state != 'not_paid'"/>
@@ -110,6 +112,25 @@
             <field name="issue_state" position="attributes">
                 <attribute name="invisible">not issue_state</attribute>
             </field>
+        </field>
+    </record>
+
+    <!-- Editable twin of the check form (primary view: inherits the read-only
+         form with all its extensions). "Editar" opens it, "Bloquear" goes
+         back to the read-only one. -->
+    <record id="l10n_latam_check_view_form_edit" model="ir.ui.view">
+        <field name="name">l10n_latam_check.view.form.edit</field>
+        <field name="model">l10n_latam.check</field>
+        <field name="inherit_id" ref="l10n_latam_check.l10n_latam_check_view_form"/>
+        <field name="mode">primary</field>
+        <field name="priority">110</field>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="attributes">
+                <attribute name="edit">true</attribute>
+            </xpath>
+            <button name="action_edit_check" position="replace">
+                <button name="action_lock_check" string="Bloquear" type="object" class="btn-primary"/>
+            </button>
         </field>
     </record>
 
