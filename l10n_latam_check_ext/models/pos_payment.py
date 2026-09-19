@@ -99,7 +99,17 @@ class PosPayment(models.Model):
         a third-party check isn't considered truly settled until it's
         actually processed at that point.
         """
-        check_payments = self.filtered(lambda p: p.payment_method_id.payment_method_type == 'check')
+        # Session already closed (`is_reverse`): every check already got its
+        # `account.payment` at closing (against the POS receivable account,
+        # because the order was not invoiced yet). Core's own path for
+        # payments of an order invoiced after its session closed -- a payment
+        # move that moves it from the POS receivable to the customer's
+        # receivable and gets reconciled with the invoice -- is exactly what
+        # is needed, so checks go through it too. Only while the session is
+        # still open are they deferred to the closing.
+        check_payments = self.browse() if is_reverse else self.filtered(
+            lambda p: p.payment_method_id.payment_method_type == 'check'
+        )
         other_payments = self - check_payments
         if not other_payments:
             return self.env['account.move']
@@ -118,10 +128,9 @@ class PosPayment(models.Model):
         # `l10n_latam_check_id.check_state`, happens via a raw SQL UPDATE at
         # flush time, never through this method, so blocking here is safe).
         if 'check_state' in vals:
-            raise UserError(_(
-                "El estado del cheque solo se puede cambiar desde el cheque "
-                "contable (l10n_latam.check), no desde el pago."
-            ))
+            # Ignored (not rejected): a bulk write/import that carries it must
+            # not abort; the state always comes from the check itself.
+            vals = {k: v for k, v in vals.items() if k != 'check_state'}
         res = super().write(vals)
         self._l10n_latam_ensure_check()
         return res

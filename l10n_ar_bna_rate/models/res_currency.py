@@ -170,7 +170,32 @@ class ResCurrency(models.Model):
                 _logger.warning("l10n_ar_bna_rate: moneda %s no encontrada en Odoo.", odoo_code)
                 continue
 
+            max_jump = float(
+                self.env["ir.config_parameter"].sudo().get_param("l10n_ar_bna_rate.max_jump", "0.25")
+            )
             for company in ars_companies:
+                # A parsing slip or a change in the bank's page must not write
+                # a wrong rate that then values every invoice: refuse a jump
+                # above `l10n_ar_bna_rate.max_jump` (default 25%) against the
+                # last known rate and leave it to be reviewed.
+                previous = CurrencyRate.search(
+                    [
+                        ("currency_id", "=", currency.id),
+                        ("company_id", "=", company.id),
+                        ("name", "<", today),
+                    ],
+                    order="name desc",
+                    limit=1,
+                )
+                if previous and previous.rate and max_jump:
+                    jump = abs(rate_value / previous.rate - 1.0)
+                    if jump > max_jump:
+                        _logger.error(
+                            "l10n_ar_bna_rate: %s rate NOT updated for %s: %.1f%% jump "
+                            "(previous %.8f, fetched %.8f, venta %.4f). Review it manually.",
+                            odoo_code, company.name, jump * 100, previous.rate, rate_value, venta,
+                        )
+                        continue
                 existing = CurrencyRate.search(
                     [
                         ("currency_id", "=", currency.id),
