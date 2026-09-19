@@ -40,8 +40,9 @@
                 <field name="l10n_latam_check_payment_date" optional="hide"/>
                 <field name="check_state" optional="show" widget="badge"
                        invisible="payment_method_type != 'check'"
-                       decoration-success="check_state in ('collected', 'paid')"
-                       decoration-danger="check_state in ('not_collected', 'not_paid')"/>
+                       decoration-success="check_state == 'paid'"
+                       decoration-warning="check_state == 'transferred'"
+                       decoration-danger="check_state == 'not_paid'"/>
             </field>
         </field>
     </record>
@@ -52,8 +53,9 @@
         <field name="inherit_id" ref="point_of_sale.view_pos_payment_search"/>
         <field name="arch" type="xml">
             <filter name="group_by_payment_method" position="before">
-                <filter name="check_state_collected" string="Cobrado" domain="[('check_state', '=', 'collected')]"/>
-                <filter name="check_state_not_collected" string="No Cobrado" domain="[('check_state', '=', 'not_collected')]"/>
+                <filter name="check_state_collected" string="Cobrado" domain="[('check_state', '=', 'paid')]"/>
+                <filter name="check_state_not_collected" string="No Cobrado" domain="[('check_state', '=', 'not_paid')]"/>
+                <filter name="check_state_transferred" string="Girado" domain="[('check_state', '=', 'transferred')]"/>
                 <separator/>
             </filter>
             <filter name="group_by_session" position="after">

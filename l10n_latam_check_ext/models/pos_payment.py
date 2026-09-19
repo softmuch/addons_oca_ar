@@ -45,10 +45,19 @@ class PosPayment(models.Model):
     # on l10n_latam.check alone (the shared record) -- mirrored here as a
     # plain readonly related so it still shows/filters/groups on pos.payment,
     # but can only ever be changed from the check itself.
+    # A pos.payment cheque is always a third-party one (received from a
+    # customer), so it carries the third-party labels of the check's state.
+    # (A `related` field ignores its own `selection`, hence compute+store.)
     check_state = fields.Selection(
-        related='l10n_latam_check_id.check_state', string="Estado del Cheque",
+        selection=[('not_paid', 'No Cobrado'), ('paid', 'Cobrado'), ('transferred', 'Girado')],
+        compute='_compute_check_state', string="Estado del Cheque",
         store=True, readonly=True,
     )
+
+    @api.depends('l10n_latam_check_id.check_state')
+    def _compute_check_state(self):
+        for payment in self:
+            payment.check_state = payment.l10n_latam_check_id.check_state or False
 
     @api.onchange('payment_method_id')
     def _onchange_payment_method_id_l10n_latam_check(self):

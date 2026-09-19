@@ -66,59 +66,133 @@ class L10nLatamCheckExt(models.Model):
         ),
     )
 
-    # ── Check state (cobrado/pagado) ────────────────────────────────────────
-    # One field, four values covering both check kinds: 'not_collected'/
-    # 'collected' for a check *received* from a customer (payment_method_code
-    # 'new_third_party_checks', or still empty -- pos.payment always creates
-    # this kind, instantly, before any payment_method_code exists yet), and
-    # 'not_paid'/'paid' for a check the company itself *issues*
-    # ('own_checks'). A single Selection can't vary its label set per record,
-    # so all four live on the same field; `_check_state_matches_check_kind`
-    # below enforces a record only ever uses the pair that matches its kind.
-    #
-    # This is the only place check_state can be changed -- one check can now
-    # settle several pos.order/pos.payment at once (pay.freely.wizard, in
-    # odoxeus_rioseed), so it can't live as an independently-writable field
-    # on pos.payment anymore. pos.payment.check_state mirrors this as a
-    # plain readonly `related`, which Odoo keeps in sync automatically.
-    check_state = fields.Selection(
-        selection=[
-            ('not_collected', 'No Cobrado'),
-            ('collected', 'Cobrado'),
-            ('not_paid', 'No Pagado'),
-            ('paid', 'Pagado'),
-        ],
-        string='Estado de Cobro/Pago',
-        default='not_collected',
+    # ── Check kind (own vs third-party) ─────────────────────────────────────
+    # `payment_method_code` (core) is a non-stored related off `payment_id`,
+    # so it's empty for every check created instantly by pos.payment/the
+    # purchase wizards (no account.payment yet) and can't be used in a
+    # domain to tell "own" from "third-party" apart. Stored instead, with an
+    # explicit default: a check with no payment_id is a third-party one
+    # unless whoever creates it says otherwise (`odossey_purchase_pos_
+    # payment_check`'s "new check" flow creates own checks this way).
+    check_kind = fields.Selection(
+        selection=[('third_party', 'De Terceros'), ('own', 'Propio')],
+        string='Tipo de Cheque (propio/terceros)',
+        compute='_compute_check_kind',
+        store=True,
+        readonly=False,
+        default='third_party',
         copy=False,
+        index=True,
     )
 
-    @api.constrains('check_state')
+    @api.depends('payment_method_code')
+    def _compute_check_kind(self):
+        for rec in self:
+            code = rec.payment_method_code
+            if code == 'own_checks':
+                rec.check_kind = 'own'
+            elif code:
+                rec.check_kind = 'third_party'
+            else:
+                rec.check_kind = rec.check_kind or 'third_party'
+
+    # ── Check state (cobrado/pagado/girado) ─────────────────────────────────
+    # One technical field with three values that apply to both kinds:
+    # 'not_paid' / 'paid' (No cobrado/Cobrado for a third-party check,
+    # No pagado/Pagado for an own one) and 'transferred' (Girado: a
+    # third-party check endorsed to a supplier -- meaningless for an own
+    # one, enforced below). A Selection can't vary its value labels per
+    # view, so the two `check_state_third`/`check_state_own` fields below
+    # mirror it with the right labels for each kind of list/form (stored, so
+    # they can be grouped by).
+    #
+    # This is the only place check_state can be changed -- one check can
+    # settle several pos.order/pos.payment at once (pay.freely.wizard), so it
+    # can't live as an independently-writable field on pos.payment.
+    # pos.payment.check_state mirrors this as a plain readonly `related`,
+    # which Odoo keeps in sync automatically.
+    check_state = fields.Selection(
+        selection=[
+            ('not_paid', 'No Cobrado / No Pagado'),
+            ('paid', 'Cobrado / Pagado'),
+            ('transferred', 'Girado'),
+        ],
+        string='Estado',
+        default='not_paid',
+        copy=False,
+    )
+    check_state_third = fields.Selection(
+        selection=[('not_paid', 'No Cobrado'), ('paid', 'Cobrado'), ('transferred', 'Girado')],
+        string='Estado de Cobro',
+        compute='_compute_check_state_display',
+        store=True,
+    )
+    check_state_own = fields.Selection(
+        selection=[('not_paid', 'No Pagado'), ('paid', 'Pagado')],
+        string='Estado de Pago',
+        compute='_compute_check_state_display',
+        store=True,
+    )
+
+    @api.depends('check_state')
+    def _compute_check_state_display(self):
+        for rec in self:
+            rec.check_state_third = rec.check_state
+            rec.check_state_own = rec.check_state if rec.check_state != 'transferred' else False
+
+    @api.constrains('check_state', 'check_kind')
     def _check_state_matches_check_kind(self):
         for rec in self:
-            if not rec.check_state:
-                continue
-            is_own = rec.payment_method_code == 'own_checks'
-            valid = ('not_paid', 'paid') if is_own else ('not_collected', 'collected')
-            if rec.check_state not in valid:
+            if rec.check_kind == 'own' and rec.check_state == 'transferred':
+                raise ValidationError(_("Un cheque propio no puede estar Girado."))
+
+    def _check_can_change_state(self):
+        for rec in self:
+            if rec.check_state == 'transferred':
                 raise ValidationError(_(
-                    "El estado '%(state)s' no corresponde a un cheque %(kind)s.",
-                    state=dict(rec._fields['check_state'].selection)[rec.check_state],
-                    kind='propio' if is_own else 'de cliente',
+                    "El cheque %(name)s ya fue girado: su estado no se puede cambiar.",
+                    name=rec.name,
                 ))
 
-    def action_toggle_check_state(self):
-        """Flip between the two states of whichever pair applies to this
-        check's own kind (own vs third-party) -- the form keeps this behind
-        a button rather than a raw editable field since l10n_latam.check's
-        form is otherwise `edit="false"` by design (legal/audit document,
-        not meant to be freely edited)."""
-        for rec in self:
-            is_own = rec.payment_method_code == 'own_checks'
-            if is_own:
-                rec.check_state = 'not_paid' if rec.check_state == 'paid' else 'paid'
-            else:
-                rec.check_state = 'not_collected' if rec.check_state == 'collected' else 'collected'
+    def action_mark_paid(self):
+        """Cobrado (third-party check) / Pagado (own check) -- the form is
+        `edit="false"` by design (legal/audit document), so the state goes
+        through these buttons instead of raw field editing."""
+        self._check_can_change_state()
+        self.write({'check_state': 'paid'})
+
+    def action_mark_not_paid(self):
+        self._check_can_change_state()
+        self.write({'check_state': 'not_paid'})
+
+    # ── POS orders paid with this check ─────────────────────────────────────
+    # A check received from a customer settles one or more pos.order (one
+    # pos.payment per order, all sharing the same check -- see
+    # pos_payment.py/`pay.freely.wizard`): the orders the customer paid with
+    # it, derived from those rows.
+    pos_payment_ids = fields.One2many(
+        comodel_name='pos.payment',
+        inverse_name='l10n_latam_check_id',
+        domain=[('pos_order_id', '!=', False)],
+        string='Pagos de POS',
+        readonly=True,
+    )
+    pos_order_ids = fields.Many2many(
+        comodel_name='pos.order',
+        string='Órdenes POS pagadas',
+        compute='_compute_pos_payment_info',
+    )
+    pos_paid_amount = fields.Monetary(
+        string='Aplicado a órdenes POS',
+        compute='_compute_pos_payment_info',
+    )
+
+    @api.depends('pos_payment_ids.amount', 'pos_payment_ids.pos_order_id')
+    def _compute_pos_payment_info(self):
+        for check in self:
+            payments = check.pos_payment_ids
+            check.pos_order_ids = payments.pos_order_id
+            check.pos_paid_amount = sum(payments.mapped('amount'))
 
     # ── Expiring soon ────────────────────────────────────────────────────────
 

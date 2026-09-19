@@ -7,7 +7,7 @@
          cheques recién creados quedaban invisibles acá hasta el cierre de
          sesión/facturación. Se amplía el dominio para incluirlos también. -->
     <record id="l10n_latam_check.action_third_party_check" model="ir.actions.act_window">
-        <field name="domain">['|', '&amp;', ('payment_method_code', '=', 'new_third_party_checks'), ('payment_id.state', '!=', 'draft'), ('payment_id', '=', False)]</field>
+        <field name="domain">[('check_kind', '=', 'third_party'), '|', ('payment_id', '=', False), ('payment_id.state', '!=', 'draft')]</field>
     </record>
 
     <!-- Default "On hand" filter on that same list: originally required a
@@ -21,7 +21,7 @@
         <field name="inherit_id" ref="l10n_latam_check.view_account_payment_third_party_checks_search"/>
         <field name="arch" type="xml">
             <filter name="checks_on_hand" position="attributes">
-                <attribute name="domain">[('issue_state', '!=', 'handed')]</attribute>
+                <attribute name="domain">[('issue_state', '!=', 'handed'), ('check_state', '!=', 'transferred')]</attribute>
             </filter>
         </field>
     </record>
@@ -37,20 +37,21 @@
                 <filter name="expiring_soon" string="Por vencer"
                         domain="[('is_expiring_soon', '=', True)]"/>
                 <separator/>
-                <filter name="check_state_collected" string="Cobrado" domain="[('check_state', '=', 'collected')]"/>
-                <filter name="check_state_not_collected" string="No Cobrado" domain="[('check_state', '=', 'not_collected')]"/>
+                <filter name="check_state_collected" string="Cobrado / Pagado" domain="[('check_state', '=', 'paid')]"/>
+                <filter name="check_state_not_collected" string="No Cobrado / No Pagado" domain="[('check_state', '=', 'not_paid')]"/>
+                <filter name="check_state_transferred" string="Girado" domain="[('check_state', '=', 'transferred')]"/>
             </filter>
             <filter name="groupby_issue_state" position="after">
-                <filter name="groupby_check_state" string="Estado de Cobro/Pago" domain="[]"
-                        context="{'group_by': 'check_state'}"/>
+                <filter name="groupby_check_state" string="Estado" domain="[]"
+                        context="{'group_by': 'check_state_third'}"/>
             </filter>
         </field>
     </record>
 
     <!-- Form view: add check_type + issue_date in first group, plus
-         check_state (badge, always visible) with a toggle button.
+         check_state (badge, always visible) with mark-as-paid buttons.
          The form is `edit="false"` by design (legal/audit document), so
-         check_state changes go through action_toggle_check_state instead
+         check_state changes go through action_mark_paid/_not_paid instead
          of raw field editing. -->
     <record id="l10n_latam_check_ext_view_form" model="ir.ui.view">
         <field name="name">l10n_latam_check_ext.view.form</field>
@@ -60,13 +61,25 @@
             <field name="name" position="after">
                 <field name="check_type"/>
                 <field name="issue_date"/>
-                <field name="check_state" widget="badge"
-                       decoration-success="check_state in ('collected', 'paid')"
-                       decoration-danger="check_state in ('not_collected', 'not_paid')"/>
+                <field name="check_kind" invisible="1"/>
+                <field name="check_state_third" widget="badge" invisible="check_kind != 'third_party'"
+                       decoration-success="check_state_third == 'paid'"
+                       decoration-warning="check_state_third == 'transferred'"
+                       decoration-danger="check_state_third == 'not_paid'"/>
+                <field name="check_state_own" widget="badge" invisible="check_kind != 'own'"
+                       decoration-success="check_state_own == 'paid'"
+                       decoration-danger="check_state_own == 'not_paid'"/>
             </field>
             <xpath expr="//header" position="inside">
-                <button name="action_toggle_check_state" string="Cambiar Estado de Cobro/Pago"
-                        type="object" class="btn-secondary"/>
+                <field name="check_state" invisible="1"/>
+                <button name="action_mark_paid" string="Marcar como Cobrado" type="object" class="btn-secondary"
+                        invisible="check_kind != 'third_party' or check_state != 'not_paid'"/>
+                <button name="action_mark_not_paid" string="Marcar como No Cobrado" type="object" class="btn-secondary"
+                        invisible="check_kind != 'third_party' or check_state != 'paid'"/>
+                <button name="action_mark_paid" string="Marcar como Pagado" type="object" class="btn-secondary"
+                        invisible="check_kind != 'own' or check_state != 'not_paid'"/>
+                <button name="action_mark_not_paid" string="Marcar como No Pagado" type="object" class="btn-secondary"
+                        invisible="check_kind != 'own' or check_state != 'paid'"/>
             </xpath>
         </field>
     </record>
@@ -83,10 +96,57 @@
             <field name="payment_date" position="before">
                 <field name="check_type" optional="show"/>
                 <field name="issue_date" optional="show"/>
-                <field name="check_state" optional="show" widget="badge"
-                       decoration-success="check_state in ('collected', 'paid')"
-                       decoration-danger="check_state in ('not_collected', 'not_paid')"/>
+                <field name="check_state_own" optional="show" widget="badge"
+                       decoration-success="check_state_own == 'paid'"
+                       decoration-danger="check_state_own == 'not_paid'"/>
             </field>
+        </field>
+    </record>
+
+    <!-- The third-party checks list inherits the own one above: swap the
+         state column for the third-party labels (No cobrado / Cobrado /
+         Girado, the last in yellow). -->
+    <record id="l10n_latam_check_ext_view_third_party_check_tree" model="ir.ui.view">
+        <field name="name">l10n_latam_check_ext.view.third_party_check.list</field>
+        <field name="model">l10n_latam.check</field>
+        <field name="inherit_id" ref="l10n_latam_check.view_account_third_party_check_tree"/>
+        <field name="arch" type="xml">
+            <field name="check_state_own" position="replace">
+                <field name="check_state_third" optional="show" widget="badge"
+                       decoration-success="check_state_third == 'paid'"
+                       decoration-warning="check_state_third == 'transferred'"
+                       decoration-danger="check_state_third == 'not_paid'"/>
+                <field name="pos_order_ids" widget="many2many_tags" optional="show"/>
+            </field>
+        </field>
+    </record>
+
+    <!-- Third-party check form: the POS orders the customer paid with it
+         (whatever the check's state: Cobrado, No cobrado or Girado). The
+         purchase orders it then paid once "Girado" are added by
+         odossey_purchase_pos_payment_check. -->
+    <record id="l10n_latam_check_ext_view_form_pos_orders" model="ir.ui.view">
+        <field name="name">l10n_latam_check_ext.view.form.pos_orders</field>
+        <field name="model">l10n_latam.check</field>
+        <field name="inherit_id" ref="l10n_latam_check.l10n_latam_check_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <notebook name="check_orders">
+                    <page string="Órdenes POS pagadas" name="pos_orders" invisible="check_kind != 'third_party'">
+                        <field name="pos_payment_ids" readonly="1" nolabel="1">
+                            <list>
+                                <field name="pos_order_id"/>
+                                <field name="payment_date"/>
+                                <field name="payment_method_id"/>
+                                <field name="amount"/>
+                            </list>
+                        </field>
+                        <group class="oe_subtotal_footer">
+                            <field name="pos_paid_amount"/>
+                        </group>
+                    </page>
+                </notebook>
+            </xpath>
         </field>
     </record>
 

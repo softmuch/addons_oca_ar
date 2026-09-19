@@ -8,6 +8,26 @@
         <field name="arch" type="xml">
             <block id="print_vendor_checks_setting_container" position="after">
 
+                <block title="Cheques Propios — Valores por defecto"
+                       name="latam_own_check_defaults_container"
+                       groups="account.group_account_manager">
+                    <setting string="Emisión de cheques propios"
+                             help="Valores que se completan solos al emitir un cheque propio desde los pagos de compras. El banco es uno de los definidos en las cuentas bancarias de la compañía; el CUIT emisor es el de la compañía.">
+                        <div class="content-group">
+                            <field name="l10n_latam_company_partner_id" invisible="1"/>
+                            <div class="row">
+                                <label for="l10n_latam_default_check_bank_id" class="col-lg-4 o_light_label"/>
+                                <field name="l10n_latam_default_check_bank_id" class="col-lg-8"
+                                       options="{'no_create': True}"/>
+                            </div>
+                            <div class="row mt4">
+                                <label for="l10n_latam_default_check_type" class="col-lg-4 o_light_label"/>
+                                <field name="l10n_latam_default_check_type" class="col-lg-8"/>
+                            </div>
+                        </div>
+                    </setting>
+                </block>
+
                 <block title="Alertas de Vencimiento — Cheques Propios"
                        name="latam_own_check_alert_container"
                        groups="account.group_account_manager">

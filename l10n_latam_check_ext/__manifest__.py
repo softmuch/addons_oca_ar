@@ -1,6 +1,6 @@
 {
     "name": "Extensión Cheques LATAM",
-    "version": "19.0.1.0.1",
+    "version": "19.0.2.0.0",
     "category": "Localization/Argentina",
     "website": "https://github.com/OCA/l10n-argentina",
     "author": "Odossey",
@@ -15,6 +15,7 @@
         "data/ir_cron_data.xml",
         "views/l10n_latam_check_ext_views.xml",
         "views/res_config_settings_views.xml",
+        "views/res_partner_views.xml",
         "views/pos_payment_views.xml",
         "views/pos_make_payment_views.xml",
         "views/pos_order_views.xml",

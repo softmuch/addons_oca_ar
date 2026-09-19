@@ -24,3 +24,18 @@ class ResConfigSettings(models.TransientModel):
         readonly=False,
         string='Usuarios a notificar (cheques de terceros)',
     )
+
+    # Defaults for the company's own issued checks: they live on the company's
+    # own partner (see res_partner.py).
+    l10n_latam_company_partner_id = fields.Many2one(related='company_id.partner_id')
+    l10n_latam_default_check_bank_id = fields.Many2one(
+        related='company_id.partner_id.default_bank_id',
+        readonly=False,
+        domain="[('partner_id', '=', l10n_latam_company_partner_id)]",
+        string='Cuenta bancaria para cheques',
+    )
+    l10n_latam_default_check_type = fields.Selection(
+        related='company_id.partner_id.default_check_type',
+        readonly=False,
+        string='Tipo de cheque por defecto',
+    )
