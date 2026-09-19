@@ -37,6 +37,7 @@ class L10nLatamCheckExt(models.Model):
         selection=[
             ('common', 'Cheque Común'),
             ('deferred', 'Cheque de Pago Diferido (CPD)'),
+            ('echeq', 'ECHEQ o Cheque Electrónico'),
         ],
         string='Tipo de Cheque',
         help=(
@@ -48,7 +49,10 @@ class L10nLatamCheckExt(models.Model):
             "que puede ir de 1 hasta 360 días desde la emisión. Es muy usado en Argentina como "
             "instrumento de financiamiento, ya que puede negociarse (descontarse) en el mercado de "
             "capitales antes de su vencimiento, incluso a través del sistema de cheques electrónicos "
-            "(eCheq) en mercados como el MAE o Bolsas y Mercados Argentinos (BYMA)."
+            "(eCheq) en mercados como el MAE o Bolsas y Mercados Argentinos (BYMA).\n\n"
+            "ECHEQ o Cheque Electrónico: Se emite, endosa y cobra íntegramente de forma digital a "
+            "través de la home banking de cada banco (sistema regulado por el BCRA), sin soporte "
+            "en papel. Puede ser común o de pago diferido."
         ),
     )
 
