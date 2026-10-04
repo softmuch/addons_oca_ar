@@ -745,3 +745,24 @@ msgstr "o"
 #~ msgstr ""
 #~ "Tiene más de un certificado de \"%s\" confirmado. Por favor deje un solo "
 #~ "certificado de \"%s\" confirmado."
+
+#. module: l10n_ar_afipws
+#. odoo-python
+#: code:addons/l10n_ar_afipws/models/res_partner.py:0
+msgid ""
+"The partner 'Consumidor Final Anónimo' is used by AFIP electronic invoicing "
+"and cannot be modified. Create a new partner for this customer instead."
+msgstr ""
+"El contacto 'Consumidor Final Anónimo' es utilizado por la facturación "
+"electrónica de AFIP y no puede modificarse. Cree un contacto nuevo para este "
+"cliente."
+
+#. module: l10n_ar_afipws
+#. odoo-python
+#: code:addons/l10n_ar_afipws/models/res_partner.py:0
+msgid ""
+"The partner 'Consumidor Final Anónimo' is used by AFIP electronic invoicing "
+"and cannot be deleted."
+msgstr ""
+"El contacto 'Consumidor Final Anónimo' es utilizado por la facturación "
+"electrónica de AFIP y no puede eliminarse."
