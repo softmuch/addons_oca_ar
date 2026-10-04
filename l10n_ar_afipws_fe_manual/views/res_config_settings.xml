@@ -15,6 +15,22 @@
                         (si está desactivado, se autoriza automáticamente al confirmar la factura)
                     </span>
                 </div>
+                <label for="l10n_ar_pos_invoice_default" />
+                <div class="o_row">
+                    <field name="l10n_ar_pos_invoice_default" />
+                    <span>
+                        Botón "Factura" marcado por defecto en la pantalla de pago del POS
+                        (si está desactivado, el cajero lo marca solo cuando el cliente pide factura)
+                    </span>
+                </div>
+                <label for="l10n_ar_pos_invoice_download" />
+                <div class="o_row">
+                    <field name="l10n_ar_pos_invoice_download" />
+                    <span>
+                        Descargar el PDF de la factura al validar el pago en el POS
+                        (si está desactivado, la factura se genera igual pero no se descarga)
+                    </span>
+                </div>
             </field>
         </field>
     </record>
